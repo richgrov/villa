@@ -1,10 +1,15 @@
-use glam::Vec2;
-use miniquad::{BufferType, Buffer, Context, Bindings, Pipeline, VertexAttribute, VertexFormat, BufferLayout};
+use glam::{Vec2, Mat4, Vec3};
+use miniquad::{BufferType, Buffer, Context, Bindings, Pipeline, VertexAttribute, VertexFormat, BufferLayout, UniformDesc, UniformType};
 
 #[repr(C)]
 struct Vertex {
     pos: Vec2,
     uv: Vec2,
+}
+
+#[repr(C)]
+struct Uniforms {
+    u_mvp: Mat4,
 }
 
 pub struct Scene {
@@ -15,10 +20,10 @@ pub struct Scene {
 impl Scene {
     pub fn new(ctx: &mut Context) -> Scene {
         let vertices = Buffer::immutable(ctx, BufferType::VertexBuffer, &[
-            Vertex { pos: Vec2 { x: -0.5, y: -0.5 }, uv: Vec2 { x: 0., y: 1. } },
-            Vertex { pos: Vec2 { x: 0.5, y: -0.5 }, uv: Vec2 { x: 1., y: 1. } },
-            Vertex { pos: Vec2 { x: 0.5, y: 0.5 }, uv: Vec2 { x: 1., y: 0. } },
-            Vertex { pos: Vec2 { x: -0.5, y: 0.5 }, uv: Vec2 { x: 0., y: 0. } },
+            Vertex { pos: Vec2 { x: 0., y: 0. }, uv: Vec2 { x: 0., y: 0. } },
+            Vertex { pos: Vec2 { x: 1., y: -0. }, uv: Vec2 { x: 1., y: 0. } },
+            Vertex { pos: Vec2 { x: 1., y: 1. }, uv: Vec2 { x: 1., y: 1. } },
+            Vertex { pos: Vec2 { x: -0., y: 1. }, uv: Vec2 { x: 0., y: 1. } },
         ]);
         let indices = Buffer::immutable(ctx, BufferType::IndexBuffer, &[0, 1, 2, 2, 3, 0]);
 
@@ -43,7 +48,9 @@ impl Scene {
             include_str!("../res/text.fsh"),
             miniquad::ShaderMeta {
                 images: vec!["tex".to_string()],
-                uniforms: miniquad::UniformBlockLayout { uniforms: vec![] },
+                uniforms: miniquad::UniformBlockLayout {
+                    uniforms: vec![UniformDesc::new("u_mvp", UniformType::Mat4)],
+                },
             },
         ).unwrap();
 
@@ -66,11 +73,20 @@ impl miniquad::EventHandler for Scene {
     }
 
     fn draw(&mut self, ctx: &mut miniquad::Context) {
+        let (width, height) = ctx.screen_size();
+        let projection = Mat4::orthographic_rh(0., width, height, 0., -1., 1.);
+        let view = Mat4::IDENTITY;
+        let model = Mat4::from_scale(Vec3::new(500., 500., 1.));
+
         ctx.begin_default_pass(Default::default());
 
         ctx.apply_pipeline(&self.pipeline);
         ctx.apply_bindings(&self.bindings);
 
+        let mvp = projection * view * model;
+        ctx.apply_uniforms(&Uniforms {
+            u_mvp: mvp,
+        });
         ctx.draw(0, 6, 1);
 
         ctx.end_render_pass();
