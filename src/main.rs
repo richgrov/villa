@@ -20,8 +20,8 @@ pub struct Scene {
 
     font_texture: miniquad::Texture,
     font_map: Vec<char>,
-    // Left, top, width, height
-    glyph_coords: Vec<(f32, f32, f32, f32)>,
+    // Left, top, width
+    glyph_coords: Vec<(f32, f32, f32)>,
 }
 
 impl Scene {
@@ -37,8 +37,7 @@ impl Scene {
         let cell_width = image.width() / 16;
         let cell_height = image.height() / 16;
         let widthf = image.width() as f32;
-        let heightf = image.height() as f32;
-        let mut glyph_sizes = vec![(0f32, 0f32, 0f32, 0f32); 256];
+        let mut glyph_sizes = vec![(0f32, 0f32, 0f32); 256];
         for x in 0..image.width() {
             for y in 0..image.height() {
                 let current_cell_x = x / cell_width;
@@ -46,7 +45,6 @@ impl Scene {
                 if image.get_pixel(x, y)[3] != 0 {
                     let size = &mut glyph_sizes[(current_cell_y * 16 + current_cell_x) as usize];
                     size.2 = size.2.max(((x + 1) % cell_width) as f32 / widthf);
-                    size.3 = size.3.max(((y + 1) % cell_height) as f32 / heightf);
                 }
             }
         }
@@ -113,7 +111,8 @@ impl Scene {
         for c in text.chars() {
             // Minecraft ignores the first 2 rows of characters so add 32 to the index
             let index = self.font_map.iter().position(|ch| *ch == c)? + 32;
-            let (left, top, width, height) = self.glyph_coords[index];
+            let (left, top, width) = self.glyph_coords[index];
+            let height = 1./16.;
 
             vertices.extend_from_slice(&[
                 Vertex { pos: Vec2::new(x_offset, 0.), uv: Vec2::new(left, top) },
