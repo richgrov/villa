@@ -1,8 +1,8 @@
-#version 100
-attribute vec2 pos;
-attribute vec2 uv;
+#version 460
+in vec2 pos;
+in vec2 uv;
 
-varying lowp vec2 texCoord;
+out vec2 texCoord;
 
 uniform mat4 u_mvp;
 

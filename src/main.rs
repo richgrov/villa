@@ -1,6 +1,9 @@
+mod gl;
+mod graphics;
+
 use glam::{Vec2, Mat4, Vec3};
+use glfw::Context;
 use image::GenericImageView;
-use miniquad::{BufferType, Buffer, Context, Bindings, Pipeline, VertexAttribute, VertexFormat, BufferLayout, UniformDesc, UniformType};
 
 #[repr(C)]
 #[derive(Clone)]
@@ -9,23 +12,19 @@ struct Vertex {
     uv: Vec2,
 }
 
-#[repr(C)]
-struct Uniforms {
-    u_mvp: Mat4,
-}
-
 pub struct Scene {
-    pipeline: Pipeline,
-    text: Option<Bindings>,
+    text: Option<graphics::Mesh<Vertex>>,
 
-    font_texture: miniquad::Texture,
+    font_texture: graphics::PixelTexture,
+    font_program: graphics::Program,
+    font_mat4_uniform: graphics::MatrixUniform,
     font_map: Vec<char>,
     // Left, top, width
     glyph_coords: Vec<(f32, f32, f32)>,
 }
 
 impl Scene {
-    pub fn new(ctx: &mut Context) -> Scene {
+    pub fn new() -> Scene {
         let image = image::load_from_memory(include_bytes!("../res/default.png")).unwrap();
         if image.width() % 16 != 0 {
             panic!("font texture should have 16 evenly-sized columns");
@@ -56,42 +55,23 @@ impl Scene {
             }
         }
 
-        let texture = miniquad::Texture::from_rgba8(
-            ctx,
-            image.width() as u16,
-            image.height() as u16,
-            &image.to_rgba8()
-        );
-        texture.set_filter(ctx, miniquad::FilterMode::Nearest);
-        texture.set_wrap(ctx, miniquad::TextureWrap::Clamp);
+        let texture = graphics::PixelTexture::new();
+        texture.set_data(&image);
 
-        let shader = miniquad::Shader::new(
-            ctx,
+        let program = graphics::Program::new(
             include_str!("../res/text.vsh"),
             include_str!("../res/text.fsh"),
-            miniquad::ShaderMeta {
-                images: vec!["tex".to_string()],
-                uniforms: miniquad::UniformBlockLayout {
-                    uniforms: vec![UniformDesc::new("u_mvp", UniformType::Mat4)],
-                },
-            },
-        ).unwrap();
-
-        let pipeline = Pipeline::new(
-            ctx,
-            &[BufferLayout::default()],
-            &[
-                VertexAttribute::new("pos", VertexFormat::Float2),
-                VertexAttribute::new("uv", VertexFormat::Float2),
-            ],
-            shader,
         );
+
+        let uniform = program.get_uniform("u_mvp");
         
         let mut scene = Scene {
-            pipeline,
             text: None,
 
             font_texture: texture,
+            font_program: program,
+            font_mat4_uniform: uniform,
+            
             font_map: include_str!("../res/font.txt").to_owned().replace("\n", "").chars().collect(),
             glyph_coords: glyph_sizes,
         };
@@ -102,7 +82,7 @@ impl Scene {
         scene
     }
 
-    fn build_text(&self, ctx: &mut Context, text: &str) -> Option<Bindings> {
+    fn build_text(&self, text: &str) -> Option<graphics::Mesh<Vertex>> {
         let mut vertices = Vec::with_capacity(text.len() * 4);
         let mut indices = Vec::with_capacity(text.len() * 6);
         let mut x_offset = 0.;
@@ -128,55 +108,68 @@ impl Scene {
             index_offset += 4;
         }
 
-        let vertex_buffer = Buffer::immutable(ctx, BufferType::VertexBuffer, &vertices);
-        let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &indices);
-
-        Some(Bindings {
-            vertex_buffers: vec![vertex_buffer],
-            index_buffer,
-            images: vec![self.font_texture],
-        })
+        let mut mesh = graphics::Mesh::new();
+        mesh.set_data(&vertices, &indices);
+        mesh.init_layout();
+        mesh.add_layout::<Vec2>(0, 0);
+        mesh.add_layout::<Vec2>(1, 4*2);
+        Some(mesh)
     }
-}
 
-impl miniquad::EventHandler for Scene {
-    fn update(&mut self, ctx: &mut miniquad::Context) {
+    fn update(&mut self) {
         if self.text.is_none() {
-            self.text = self.build_text(ctx, "This is some test Text!");
+            self.text = self.build_text("This is some test Text!");
         }
     }
 
-    fn draw(&mut self, ctx: &mut miniquad::Context) {
-        let (width, height) = ctx.screen_size();
+    fn draw(&self) {
+        let (width, height) = (1280., 720.); // TODO
         let projection = Mat4::orthographic_rh(0., width, height, 0., -1., 1.);
         let view = Mat4::IDENTITY;
         let model = Mat4::from_scale(Vec3::new(700., 700., 1.));
 
-        ctx.begin_default_pass(Default::default());
-
-        ctx.apply_pipeline(&self.pipeline);
+        self.font_program.bind();
 
         if let Some(text) = &self.text {
-            ctx.apply_bindings(text);
-
             let mvp = projection * view * model;
-            ctx.apply_uniforms(&Uniforms {
-                u_mvp: mvp,
-            });
-            ctx.draw(0, text.index_buffer.size() as i32, 1);
+
+            self.font_texture.bind();
+            self.font_program.bind();
+            self.font_mat4_uniform.set(&mvp);
+            text.bind_and_render();
         } else {
             println!("nothing to render");
         }
-
-        ctx.end_render_pass();
-        ctx.commit_frame();
     }
 }
 
 fn main() {
-    miniquad::start(miniquad::conf::Conf {
-        window_title: "golden".to_owned(),
-        ..Default::default()
-    }, |ctx| Box::new(Scene::new(ctx)));
-}
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
+    let (mut window, events) = glfw.create_window(1280, 730, "golden", glfw::WindowMode::Windowed)
+        .unwrap();
+
+    window.make_current();
+    window.set_key_polling(true);
+    graphics::init(&mut window);
+
+    let mut scene = Scene::new();
+
+    while !window.should_close() {
+        window.swap_buffers();
+
+        scene.update();
+        scene.draw();
+
+        glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&events) {
+            match event {
+                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
+                    window.set_should_close(true);
+                }
+
+                _ => {},
+            }
+        }
+    }
+}
