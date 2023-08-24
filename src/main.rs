@@ -1,30 +1,85 @@
-mod gl;
 mod graphics;
 
-use glam::{Vec2, Mat4, Vec3};
-use glfw::Context;
+use glam::{Mat4, Vec3};
 use image::GenericImageView;
+use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}};
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    pos: Vec2,
-    uv: Vec2,
+    pos: [f32; 2],
+    uv: [f32; 2],
 }
 
-pub struct Scene {
-    text: Option<graphics::Mesh<Vertex>>,
+const ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
 
-    font_texture: graphics::PixelTexture,
-    font_program: graphics::Program,
-    font_mat4_uniform: graphics::MatrixUniform,
+impl graphics::VertexAttribues for Vertex {
+    fn attributes() -> &'static [wgpu::VertexAttribute] {
+        &ATTRIBS
+    }
+}
+
+pub struct App {
+    window: Window,
+    gpu: graphics::GpuWrapper,
+
+    font_pipeline: wgpu::RenderPipeline,
+    font_bind_group: wgpu::BindGroup,
+    font_camera_buf: wgpu::Buffer,
+    font_uniform: wgpu::BindGroup,
+    font_mesh: Option<graphics::Mesh>,
+
     font_map: Vec<char>,
     // Left, top, width
     glyph_coords: Vec<(f32, f32, f32)>,
 }
 
-impl Scene {
-    pub fn new() -> Scene {
+impl App {
+    pub async fn new(event_loop: &EventLoop<()>) -> App {
+        let window = WindowBuilder::new()
+            .with_inner_size(winit::dpi::LogicalSize {
+                width: 1280,
+                height: 720,
+            })
+            .with_title("golden")
+            .build(&event_loop)
+            .unwrap();
+
+        let gpu = graphics::GpuWrapper::new(&window).await;
+
+        let texture_bind_layout = gpu.create_bind_group_layout(&[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: true,
+                        },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                }
+        ]);
+        let camera_bind_layout = gpu.create_bind_group_layout(&[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }]);
+
+        let font_pipeline = gpu.create_pipeline::<Vertex>(include_str!("../res/font.wgsl"), &[&texture_bind_layout, &camera_bind_layout]);
+
         let image = image::load_from_memory(include_bytes!("../res/default.png")).unwrap();
         if image.width() % 16 != 0 {
             panic!("font texture should have 16 evenly-sized columns");
@@ -55,38 +110,40 @@ impl Scene {
             }
         }
 
-        let texture = graphics::PixelTexture::new();
-        texture.set_data(&image);
+        let texture = gpu.create_texture(&image, &texture_bind_layout);
 
-        let program = graphics::Program::new(
-            include_str!("../res/text.vsh"),
-            include_str!("../res/text.fsh"),
-        );
+        let (camera_buf, camera_uniform) = gpu.create_uniform(&[
+            1.0f32, 0., 0., 0.,
+            0., 1., 0., 0.,
+            0., 0., 1., 0.,
+            0., 0., 0., 1.,
+        ], &camera_bind_layout);
 
-        let uniform = program.get_uniform("u_mvp");
-        
-        let mut scene = Scene {
-            text: None,
+        let mut app = App {
+            window,
+            gpu,
 
-            font_texture: texture,
-            font_program: program,
-            font_mat4_uniform: uniform,
-            
+            font_pipeline,
+            font_bind_group: texture,
+            font_camera_buf: camera_buf,
+            font_uniform: camera_uniform,
+            font_mesh: None,
+
             font_map: include_str!("../res/font.txt").to_owned().replace("\n", "").chars().collect(),
             glyph_coords: glyph_sizes,
         };
         
-        if let Some(index) = scene.font_map.iter().position(|c| *c == ' ') {
-            scene.glyph_coords[index + 32].2 = 4. / 256.;
+        if let Some(index) = app.font_map.iter().position(|c| *c == ' ') {
+            app.glyph_coords[index + 32].2 = 4. / 256.;
         }
-        scene
+        app
     }
 
-    fn build_text(&self, text: &str) -> Option<graphics::Mesh<Vertex>> {
+    fn build_text(&self, text: &str) -> Option<graphics::Mesh> {
         let mut vertices = Vec::with_capacity(text.len() * 4);
         let mut indices = Vec::with_capacity(text.len() * 6);
         let mut x_offset = 0.;
-        let mut index_offset = 0;
+        let mut index_offset = 0u32;
 
         for c in text.chars() {
             // Minecraft ignores the first 2 rows of characters so add 32 to the index
@@ -95,10 +152,10 @@ impl Scene {
             let height = 1./16.;
 
             vertices.extend_from_slice(&[
-                Vertex { pos: Vec2::new(x_offset, 0.), uv: Vec2::new(left, top) },
-                Vertex { pos: Vec2::new(x_offset + width, 0.), uv: Vec2::new(left + width, top) },
-                Vertex { pos: Vec2::new(x_offset + width, height), uv: Vec2::new(left + width, top + height) },
-                Vertex { pos: Vec2::new(x_offset, height), uv: Vec2::new(left, top + height) },
+                Vertex { pos: [x_offset, 0.], uv: [left, top + height] },
+                Vertex { pos: [x_offset + width, 0.], uv: [left + width, top + height] },
+                Vertex { pos: [x_offset + width, height], uv: [left + width, top] },
+                Vertex { pos: [x_offset, height], uv: [left, top] },
             ]);
             x_offset += width + 2. / 256.;
 
@@ -108,68 +165,98 @@ impl Scene {
             index_offset += 4;
         }
 
-        let mut mesh = graphics::Mesh::new();
-        mesh.set_data(&vertices, &indices);
-        mesh.init_layout();
-        mesh.add_layout::<Vec2>(0, 0);
-        mesh.add_layout::<Vec2>(1, 4*2);
-        Some(mesh)
+        Some(self.gpu.create_mesh(&vertices, &indices))
     }
 
     fn update(&mut self) {
-        if self.text.is_none() {
-            self.text = self.build_text("This is some test Text!");
+        if self.font_mesh.is_none() {
+            self.font_mesh = self.build_text("This is some test Text!");
         }
     }
 
-    fn draw(&self) {
-        let (width, height) = (1280., 720.); // TODO
-        let projection = Mat4::orthographic_rh(0., width, height, 0., -1., 1.);
-        let view = Mat4::IDENTITY;
-        let model = Mat4::from_scale(Vec3::new(700., 700., 1.));
+    fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let (frame, view, mut encoder) = self.gpu.begin_draw()?;
 
-        self.font_program.bind();
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
 
-        if let Some(text) = &self.text {
-            let mvp = projection * view * model;
+            if let Some(mesh) = &self.font_mesh {
+                let (width, height) = (1280., 720.); // TODO
+                let projection = Mat4::orthographic_lh(0., width, 0., height, -1., 1.);
+                let view = Mat4::IDENTITY;
+                let model = Mat4::from_scale(Vec3::new(700., 700., 700.));
+                let mvp = projection * view * model;
+                self.gpu.update_buffer(&self.font_camera_buf, &mvp.to_cols_array());
 
-            self.font_texture.bind();
-            self.font_program.bind();
-            self.font_mat4_uniform.set(&mvp);
-            text.bind_and_render();
-        } else {
-            println!("nothing to render");
+                pass.set_pipeline(&self.font_pipeline);
+                pass.set_bind_group(0, &self.font_bind_group, &[]);
+                pass.set_bind_group(1, &self.font_uniform, &[]);
+                mesh.bind(&mut pass);
+                mesh.draw(&mut pass);
+            }
         }
+
+        self.gpu.queue_commands(encoder.finish());
+        frame.present();
+
+        Ok(())
     }
 }
 
 fn main() {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    env_logger::init();
 
-    let (mut window, events) = glfw.create_window(1280, 730, "golden", glfw::WindowMode::Windowed)
-        .unwrap();
+    pollster::block_on(async move {
+        let event_loop = EventLoop::new();
+        let mut app = App::new(&event_loop).await;
 
-    window.make_current();
-    window.set_key_polling(true);
-    graphics::init(&mut window);
+        let mut time = std::time::Instant::now();
+        let mut frames = 0;
 
-    let mut scene = Scene::new();
-
-    while !window.should_close() {
-        window.swap_buffers();
-
-        scene.update();
-        scene.draw();
-
-        glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&events) {
+        event_loop.run(move |event, _, control_flow| {
+            use winit::event::{Event, WindowEvent};
             match event {
-                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
-                    window.set_should_close(true);
-                }
+                Event::RedrawRequested(_) => {
+                    frames += 1;
+                    let now = std::time::Instant::now();
+                    if now - time > std::time::Duration::from_secs(1) {
+                        time = now;
+                        println!("{}", frames);
+                        frames = 0;
+                    }
 
+                    app.update();
+
+                    match app.draw() {
+                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => app.gpu.reconfigure_surface(),
+                        Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                        Err(e) => eprintln!("{:?}", e),
+                        _ => {},
+                    }
+                },
+                Event::WindowEvent { window_id, event } if window_id == app.window.id() => match event {
+                    WindowEvent::Resized(size) => app.gpu.handle_resize(size),
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.gpu.handle_resize(*new_inner_size),
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    _ => {},
+                },
+                Event::MainEventsCleared => {
+                    app.window.request_redraw();
+                }
                 _ => {},
             }
-        }
-    }
+        });
+    });
 }
+

@@ -1,276 +1,284 @@
-/// Lightweight abstractions over raw OpenGL calls.
+use wgpu::{util::DeviceExt, BufferUsages};
+use winit::{window::Window, dpi::PhysicalSize};
 
-use std::ffi::{c_void, CString};
+pub struct GpuWrapper {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    surface: wgpu::Surface,
+    surface_config: wgpu::SurfaceConfiguration,
+    last_surface_size: PhysicalSize<u32>,
+}
 
-use crate::gl;
+impl GpuWrapper {
+    pub async fn new(window: &Window) -> GpuWrapper {
+        let size = window.inner_size();
+        let instance = wgpu::Instance::default();
 
-extern "system" fn debug_message_callback(
-    _source: u32,
-    ty: u32,
-    _id: u32,
-    _severity: u32,
-    _len: i32,
-    msg: *const i8,
-    _user_ptr: *mut c_void,
-) {
-    let display_type = match ty {
-        gl::DEBUG_TYPE_ERROR => "error",
-        gl::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "deprecation warning",
-        gl::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "undefined behavior",
-        gl::DEBUG_TYPE_PORTABILITY => "portability warning",
-        gl::DEBUG_TYPE_PERFORMANCE => "performance warning",
-        _ => "unknown warning",
-    };
+        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        }).await.unwrap();
 
-    unsafe {
-        let msg = std::ffi::CStr::from_ptr(msg).to_str().unwrap();
-        println!("GL {}: {}", display_type, msg);
+        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+            label: None,
+            features: wgpu::Features::empty(),
+            limits: wgpu::Limits::default(),
+        }, None).await.unwrap();
+
+        let capabilities = surface.get_capabilities(&adapter);
+        let format = capabilities.formats.iter()
+            .copied()
+            .find(|fmt| fmt.is_srgb())
+            .unwrap_or(capabilities.formats[0]);
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Fifo,
+            alpha_mode: capabilities.alpha_modes[0],
+            view_formats: vec![],
+        };
+        surface.configure(&device, &config);
+
+        GpuWrapper {
+            device,
+            queue,
+            surface,
+            surface_config: config,
+            last_surface_size: size,
+        }
+    }
+
+    pub fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
+        self.last_surface_size = new_size;
+        self.surface_config.width = new_size.width;
+        self.surface_config.height = new_size.height;
+        self.surface.configure(&self.device, &self.surface_config);
+    }
+
+    pub fn reconfigure_surface(&self) {
+        self.surface.configure(&self.device, &self.surface_config);
+    }
+
+    pub fn create_pipeline<T: VertexAttribues>(&self, src: &str, bind_group_layouts: &[&wgpu::BindGroupLayout]) -> wgpu::RenderPipeline {
+        let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(src.into()),
+        });
+
+        let layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts,
+            push_constant_ranges: &[],
+        });
+
+        self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<T>() as u64,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: T::attributes(),
+                }],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: self.surface_config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        })
+    }
+
+    pub fn create_mesh<V: bytemuck::Pod, I: bytemuck::Pod + IndexType>(&self, vertices: &[V], indices: &[I]) -> Mesh {
+        let vertex_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(vertices),
+            usage: BufferUsages::VERTEX,
+        });
+
+        let index_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(indices),
+            usage: BufferUsages::INDEX,
+        });
+
+        Mesh {
+            vertex_buf,
+            index_buf,
+            num_indices: indices.len() as u32,
+            index_format: I::format(),
+        }
+    }
+
+    pub fn create_uniform<T: bytemuck::Pod>(&self, data: &[T], layout: &wgpu::BindGroupLayout) -> (wgpu::Buffer, wgpu::BindGroup) {
+        let buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(data),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buf.as_entire_binding(),
+            }],
+            label: None,
+        });
+
+        (buf, bind_group)
+    }
+
+    pub fn create_bind_group_layout(&self, entries: &[wgpu::BindGroupLayoutEntry]) -> wgpu::BindGroupLayout {
+        self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries,
+            label: None,
+        })
+    }
+
+    pub fn update_buffer<T: bytemuck::Pod>(&self, buf: &wgpu::Buffer, data: &[T]) {
+        self.queue.write_buffer(buf, 0, bytemuck::cast_slice(data))
+    }
+
+    pub fn create_texture(&self, image: &image::DynamicImage, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
+        let dimensions = wgpu::Extent3d {
+            width: image.width(),
+            height: image.height(),
+            depth_or_array_layers: 1,
+        };
+
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            size: dimensions,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: None,
+            view_formats: &[],
+        });
+
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &image.to_rgba8(),
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * image.width()),
+                rows_per_image: Some(image.height()),
+            },
+            dimensions
+        );
+
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            label: None,
+            ..Default::default()
+        });
+
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: None,
+        })
+    }
+
+    pub fn begin_draw(&self) -> Result<(wgpu::SurfaceTexture, wgpu::TextureView, wgpu::CommandEncoder), wgpu::SurfaceError> {
+        let frame = self.surface.get_current_texture()?;
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: None,
+        });
+
+        Ok((frame, view, encoder))
+    }
+
+    pub fn queue_commands(&mut self, commands: wgpu::CommandBuffer) {
+        self.queue.submit(std::iter::once(commands));
     }
 }
 
-/// Should only be called once.
-pub fn init(window: &mut glfw::Window) {
-    gl::load_with(|s| window.get_proc_address(s));
+pub struct Mesh {
+    vertex_buf: wgpu::Buffer,
+    index_buf: wgpu::Buffer,
+    num_indices: u32,
+    index_format: wgpu::IndexFormat,
+}
 
-    unsafe {
-        gl::Enable(gl::DEBUG_OUTPUT);
-        gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
-        gl::DebugMessageCallback(Some(debug_message_callback), std::ptr::null());
+impl<'a> Mesh {
+    pub fn bind(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        render_pass.set_vertex_buffer(0, self.vertex_buf.slice(..));
+        render_pass.set_index_buffer(self.index_buf.slice(..), self.index_format);
+    }
+
+    pub fn draw(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
     }
 }
 
-pub trait VertexFormat {
-    fn size() -> i32;
-    fn ty() -> u32;
+pub trait VertexAttribues {
+    fn attributes() -> &'static [wgpu::VertexAttribute];
 }
 
-impl VertexFormat for glam::Vec2 {
-    fn size() -> i32 { 2 }
-    fn ty() -> u32 { gl::FLOAT }
+pub trait IndexType {
+    fn format() -> wgpu::IndexFormat;
 }
 
-/// A renderable mesh with vertex and index data. Be sure to call init_layout() before add_layout()
-pub struct Mesh<V> {
-    vbo: u32,
-    ibo: u32,
-    vao: u32,
-    num_indices: i32,
-    pd: std::marker::PhantomData<V>,
-}
-
-impl<V> Mesh<V> {
-    pub fn new() -> Mesh<V> {
-        unsafe {
-            let mut bufs = [0u32; 2];
-            gl::CreateBuffers(2, bufs.as_mut_ptr());
-
-            let mut vao = 0u32;
-            gl::CreateVertexArrays(1, &mut vao);
-
-            Mesh {
-                vbo: bufs[0],
-                ibo: bufs[1],
-                vao,
-                num_indices: 0,
-                pd: std::marker::PhantomData,
-            }
-        }
-    }
-
-    pub fn set_data(&mut self, vertices: &[V], indices: &[u32]) {
-        self.num_indices = indices.len() as i32;
-
-        unsafe {
-            gl::NamedBufferData(
-                self.vbo,
-                (vertices.len() * std::mem::size_of::<V>()) as isize,
-                vertices.as_ptr() as *const c_void,
-                gl::STATIC_DRAW,
-            );
-
-            gl::NamedBufferData(
-                self.ibo,
-                (indices.len() * std::mem::size_of::<u32>()) as isize,
-                indices.as_ptr() as *const c_void,
-                gl::STATIC_DRAW,
-            );
-        }
-    }
-
-    pub fn init_layout(&self) {
-        unsafe {
-            gl::VertexArrayVertexBuffer(self.vao, 0, self.vbo, 0, std::mem::size_of::<V>() as i32);
-            gl::VertexArrayElementBuffer(self.vao, self.ibo);
-        }
-    }
-
-    pub fn add_layout<T: VertexFormat>(&self, index: u32, offset: u32) {
-        unsafe {
-            gl::EnableVertexArrayAttrib(self.vao, index);
-            gl::VertexArrayAttribFormat(self.vao, index, T::size(), T::ty(), gl::FALSE, offset);
-            gl::VertexArrayAttribBinding(self.vao, index, 0);
-        }
-    }
-
-    pub fn bind_and_render(&self) {
-        unsafe {
-            gl::BindVertexArray(self.vao);
-            gl::DrawElements(gl::TRIANGLES, self.num_indices, gl::UNSIGNED_INT, std::ptr::null());
-        }
+impl IndexType for u16 {
+    fn format() -> wgpu::IndexFormat {
+        wgpu::IndexFormat::Uint16
     }
 }
 
-impl<V> Drop for Mesh<V> {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteVertexArrays(1, &self.vao);
-
-            let bufs = [self.vbo, self.ibo];
-            gl::DeleteBuffers(2, bufs.as_ptr());
-        }
+impl IndexType for u32 {
+    fn format() -> wgpu::IndexFormat {
+        wgpu::IndexFormat::Uint32
     }
 }
 
-/// A texture with filtering disabled
-pub struct PixelTexture(u32);
-
-impl PixelTexture {
-    pub fn new() -> PixelTexture {
-        unsafe {
-            let mut texture = 0u32;
-            gl::CreateTextures(gl::TEXTURE_2D, 1, &mut texture);
-            gl::TextureParameteri(texture, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            gl::TextureParameteri(texture, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl::TextureParameteri(texture, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TextureParameteri(texture, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-
-            PixelTexture(texture)
-        }
-    }
-
-    pub fn set_data(&self, image: &image::DynamicImage) {
-        unsafe {
-            gl::TextureStorage2D(
-                self.0,
-                1,
-                gl::RGBA8,
-                image.width() as i32,
-                image.height() as i32,
-            );
-            gl::TextureSubImage2D(
-                self.0,
-                0,
-                0,
-                0,
-                image.width() as i32,
-                image.height() as i32,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                image.to_rgba8().as_ptr() as *const c_void,
-            );
-        }
-    }
-
-    pub fn bind(&self) {
-        unsafe {
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.0);
-        }
-    }
-}
-
-impl Drop for PixelTexture {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteTextures(1, &mut self.0);
-        }
-    }
-}
-
-pub trait Uniform {
-    fn new(location: i32) -> Self;
-}
-
-pub struct MatrixUniform(i32);
-
-impl MatrixUniform {
-    pub fn set(&self, mat: &glam::Mat4) {
-        unsafe {
-            gl::UniformMatrix4fv(self.0, 1, gl::FALSE, mat.to_cols_array().as_ptr());
-        }
-    }
-}
-
-impl Uniform for MatrixUniform {
-    fn new(location: i32) -> Self {
-        MatrixUniform(location)
-    }
-}
-
-pub struct Program(u32);
-
-impl Program {
-    pub fn new(vertex: &str, fragment: &str) -> Program {
-        unsafe {
-            let program = gl::CreateProgram();
-
-            let vsh = Self::create_shader(gl::VERTEX_SHADER, vertex);
-            gl::AttachShader(program, vsh);
-            let fsh = Self::create_shader(gl::FRAGMENT_SHADER, fragment);
-            gl::AttachShader(program, fsh);
-
-            gl::LinkProgram(program);
-
-            let mut linked = 0;
-            gl::GetProgramiv(program, gl::LINK_STATUS, &mut linked);
-            if linked != gl::TRUE as i32 {
-                panic!("failed to link program");
-            }
-
-            Self::discard_shader(program, vsh);
-            Self::discard_shader(program, fsh);
-            Program(program)
-        }
-    }
-
-    pub fn bind(&self) {
-        unsafe {
-            gl::UseProgram(self.0);
-        }
-    }
-
-    pub fn get_uniform<U: Uniform>(&self, name: &str) -> U {
-        unsafe {
-            let name_cstr = CString::new(name).unwrap();
-            let location = gl::GetUniformLocation(self.0, name_cstr.as_ptr());
-            U::new(location)
-        }
-    }
-
-    unsafe fn create_shader(ty: u32, src: &str) -> u32 {
-        let shader = gl::CreateShader(ty);
-        let src_cstr = CString::new(src).unwrap();
-        gl::ShaderSource(shader, 1, &src_cstr.as_ptr(), std::ptr::null());
-        gl::CompileShader(shader);
-
-        let mut compiled = 0;
-        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut compiled);
-        if compiled != gl::TRUE as i32 {
-            panic!("shader failed to compile");
-        }
-
-        shader
-    }
-
-    unsafe fn discard_shader(program: u32, shader: u32) {
-        gl::DetachShader(program, shader)
-    }
-}
-
-impl Drop for Program {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.0);
-        }
-    }
-}

@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bytemuck = { version = "1.13.1", features = ["derive"] }
+env_logger = "0.10.0"
 glam = "0.24.0"
-glfw = "0.52.0"
 image = "0.24.6"
-
-[build-dependencies]
-gl_generator = "0.14.0"
+pollster = "0.3.0"
+wgpu = "0.17.0"
+winit = "0.28.6"
