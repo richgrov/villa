@@ -64,20 +64,25 @@ impl GpuWrapper {
         self.surface.configure(&self.device, &self.surface_config);
     }
 
-    pub fn create_pipeline<T: VertexAttribues>(&self, src: &str, bind_group_layouts: &[&wgpu::BindGroupLayout]) -> wgpu::RenderPipeline {
+    pub fn create_pipeline<T: VertexAttribues>(
+        &self,
+        name: &str,
+        src: &str,
+        bind_group_layouts: &[&wgpu::BindGroupLayout],
+    ) -> wgpu::RenderPipeline {
         let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
+            label: Some(&format!("{} shader", name)),
             source: wgpu::ShaderSource::Wgsl(src.into()),
         });
 
         let layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
+            label: Some(&format!("{} pipeline layout", name)),
             bind_group_layouts,
             push_constant_ranges: &[],
         });
 
         self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
+            label: Some(&format!("{} pipeline", name)),
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -156,10 +161,10 @@ impl GpuWrapper {
         (buf, bind_group)
     }
 
-    pub fn create_bind_group_layout(&self, entries: &[wgpu::BindGroupLayoutEntry]) -> wgpu::BindGroupLayout {
+    pub fn create_bind_group_layout(&self, label: &str, entries: &[wgpu::BindGroupLayoutEntry]) -> wgpu::BindGroupLayout {
         self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some(label),
             entries,
-            label: None,
         })
     }
 
