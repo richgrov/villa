@@ -104,9 +104,10 @@ impl FontRenderer {
         }
     }
 
-    pub fn build_text(&self, gpu: &GpuWrapper, text: &str) -> Option<super::Mesh> {
-        let mut vertices = Vec::with_capacity(text.len() * 4);
-        let mut indices = Vec::with_capacity(text.len() * 6);
+    pub fn build_text(&self, gpu: &GpuWrapper, text: &str, shadow: bool) -> Option<super::Mesh> {
+        let mesh_factor = if shadow { 2 } else { 1 };
+        let mut vertices = Vec::with_capacity(text.len() * 4 * mesh_factor);
+        let mut indices = Vec::with_capacity(text.len() * 6 * mesh_factor);
         let mut x_offset = 0.;
         let mut index_offset = 0u32;
 
@@ -114,20 +115,50 @@ impl FontRenderer {
             // Minecraft ignores the first 2 rows of characters so add 32 to the index
             let index = self.font_map.iter().position(|ch| *ch == c)? + 32;
             let (left, top, width) = self.glyph_coords[index];
-            let height = 1./16.;
+            let render_width = width * 16.;
 
-            vertices.extend_from_slice(&[
-                Vertex { pos: [x_offset, 0.], uv: [left, top + height] },
-                Vertex { pos: [x_offset + width, 0.], uv: [left + width, top + height] },
-                Vertex { pos: [x_offset + width, height], uv: [left + width, top] },
-                Vertex { pos: [x_offset, height], uv: [left, top] },
-            ]);
-            x_offset += width + 2. / 256.;
+            let vertex_data = [
+                Vertex {
+                    pos: [x_offset, 0.],
+                    uv: [left, top + 1./16.],
+                    color: [1.0, 1.0, 1.0],
+                },
+                Vertex {
+                    pos: [x_offset + render_width, 0.],
+                    uv: [left + width, top + 1./16.],
+                    color: [1.0, 1.0, 1.0],
+                },
+                Vertex {
+                    pos: [x_offset + render_width, 1.],
+                    uv: [left + width, top],
+                    color: [1.0, 1.0, 1.0],
+                },
+                Vertex {
+                    pos: [x_offset, 1.],
+                    uv: [left, top],
+                    color: [1.0, 1.0, 1.0],
+                },
+            ];
 
-            indices.extend_from_slice(&[
-                index_offset, index_offset + 1, index_offset + 2, index_offset + 2, index_offset + 3, index_offset
-            ]);
-            index_offset += 4;
+            if shadow {
+                let mut shadow_text = vertex_data.clone();
+                for v in &mut shadow_text {
+                    v.pos[0] += 1./16.;
+                    v.pos[1] -= 1./16.;
+                    v.color = [0.5, 0.5, 0.5];
+                }
+                vertices.extend_from_slice(&shadow_text);
+            }
+
+            vertices.extend_from_slice(&vertex_data);
+            x_offset += render_width + 1. / 16. /* one pixel space between letters */;
+
+            for _ in 0..mesh_factor {
+                indices.extend_from_slice(&[
+                    index_offset, index_offset + 1, index_offset + 2, index_offset + 2, index_offset + 3, index_offset
+                ]);
+                index_offset += 4;
+            }
         }
 
         Some(gpu.create_mesh(&vertices, &indices))
@@ -149,9 +180,10 @@ impl FontRenderer {
 struct Vertex {
     pos: [f32; 2],
     uv: [f32; 2],
+    color: [f32; 3],
 }
 
-const ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
 
 impl super::gpu::VertexAttribues for Vertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {

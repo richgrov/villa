@@ -2,13 +2,15 @@ mod gui;
 mod render;
 
 use glam::{Mat4, Vec3};
-use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}};
+use gui::{TitleGui, Gui};
+use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::PhysicalSize};
 
 pub struct App {
     window: Window,
+    window_size: PhysicalSize<u32>,
     renderer: render::Renderer,
 
-    text_mesh: render::Mesh,
+    gui: TitleGui,
 }
 
 impl App {
@@ -21,18 +23,25 @@ impl App {
             .with_title("golden")
             .build(&event_loop)
             .unwrap();
+        let window_size = window.inner_size();
 
         let renderer = render::Renderer::new(&window).await;
-        let text_mesh = renderer.font().build_text(renderer.gpu(), "The is some test Text!");
+        let title = TitleGui::new(&renderer);
 
         App {
             window,
+            window_size,
             renderer,
-            text_mesh: text_mesh.unwrap(),
+            gui: title,
         }
     }
 
     fn update(&mut self) {
+    }
+
+    fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
+        self.window_size = new_size;
+        self.renderer.gpu_mut().handle_resize(new_size);
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -52,23 +61,42 @@ impl App {
                 depth_stencil_attachment: None,
             });
 
-            self.renderer.font().prepare(&mut pass);
-
-            let (width, height) = (1280., 720.); // TODO
-            let projection = Mat4::orthographic_lh(0., width, 0., height, -1., 1.);
-            let view = Mat4::IDENTITY;
-            let model = Mat4::from_scale(Vec3::new(700., 700., 700.));
-            let mvp = projection * view * model;
-            self.renderer.font().set_camera(self.renderer.gpu(), &mvp);
-
-            self.text_mesh.bind(&mut pass);
-            self.text_mesh.draw(&mut pass);
+            self.draw_gui(&mut pass);
         }
 
         self.renderer.gpu_mut().queue_commands(encoder.finish());
         frame.present();
 
         Ok(())
+    }
+
+    fn draw_gui<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {
+        let buttons = self.gui.buttons();
+        if buttons.is_empty() {
+            return
+        }
+
+        self.renderer.font().prepare(pass);
+
+        let (width, height) = (self.window_size.width as f32, self.window_size.height as f32);
+
+        let projection = Mat4::orthographic_lh(
+            0.,
+            width,
+            0.,
+            height,
+            -1.,
+            1.,
+        );
+
+        for button in buttons {
+            let model = Mat4::from_translation(Vec3::new(button.x() * width, button.y() * height, 0.)) * Mat4::from_scale(Vec3::new(100., 100., 1.));
+            let mvp = projection * model;
+            self.renderer.font().set_camera(self.renderer.gpu(), &mvp);
+
+            button.mesh().bind(pass);
+            button.mesh().draw(pass);
+        }
     }
 }
 
@@ -104,8 +132,8 @@ fn main() {
                     }
                 },
                 Event::WindowEvent { window_id, event } if window_id == app.window.id() => match event {
-                    WindowEvent::Resized(size) => app.renderer.gpu_mut().handle_resize(size),
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.renderer.gpu_mut().handle_resize(*new_inner_size),
+                    WindowEvent::Resized(size) => app.handle_resize(size),
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     _ => {},
                 },
