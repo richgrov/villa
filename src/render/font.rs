@@ -159,7 +159,7 @@ impl FontRenderer {
                 for v in &mut shadow_text {
                     v.pos[0] += 1./16.;
                     v.pos[1] -= 1./16.;
-                    v.color = [0.5, 0.5, 0.5];
+                    v.color = [0.24705882352, 0.24705882352, 0.24705882352];
                 }
                 vertices.extend_from_slice(&shadow_text);
             }
