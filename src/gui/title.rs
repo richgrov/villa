@@ -1,23 +1,20 @@
 use crate::render::Renderer;
 
-use super::ui::{Gui, Button};
+use super::{ui::Gui, GuiBuilder};
 
 pub struct TitleGui {
-    buttons: Vec<Button>,
+    pub gui: Gui,
 }
 
 impl TitleGui {
     pub fn new(renderer: &Renderer) -> TitleGui {
         TitleGui {
-            buttons: vec![
-                Button::new(0.5, 0.5, "test", renderer),
-            ],
+            gui: GuiBuilder::new(renderer)
+                .button(0.3, 0.8, "Singleplayer")
+                .button(0.3, 0.6, "Multiplayer")
+                .button(0.3, 0.4, "Options")
+                .button(0.3, 0.2, "Quit")
+                .build()
         }
-    }
-}
-
-impl Gui for TitleGui {
-    fn buttons(&self) -> &[Button] {
-        &self.buttons       
     }
 }

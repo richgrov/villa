@@ -5,8 +5,8 @@ use super::gpu::GpuWrapper;
 pub struct FontRenderer {
     pipeline: wgpu::RenderPipeline,
     texture_bind_group: wgpu::BindGroup,
-    camera_buf: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
+    uniforms_layout: wgpu::BindGroupLayout,
+    uniform_size: usize,
 
     font_map: Vec<char>,
     // Left, top, width
@@ -15,6 +15,11 @@ pub struct FontRenderer {
 
 impl FontRenderer {
     pub fn new(gpu: &GpuWrapper) -> FontRenderer {
+        let uniform_size = wgpu::util::align_to(
+            std::mem::size_of::<FontMeshUniforms>(),
+            gpu.device().limits().min_uniform_buffer_offset_alignment as usize
+        );
+
         let texture_layout = gpu.create_bind_group_layout("Font Texture", &[
              wgpu::BindGroupLayoutEntry {
                  binding: 0,
@@ -36,18 +41,18 @@ impl FontRenderer {
              },
         ]);
 
-        let camera_layout = gpu.create_bind_group_layout("Font Camera", &[wgpu::BindGroupLayoutEntry {
+        let uniforms_layout = gpu.create_bind_group_layout("Font Uniforms", &[wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX,
+            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
+                has_dynamic_offset: true,
+                min_binding_size: wgpu::BufferSize::new(uniform_size as u64),
             },
             count: None,
         }]);
 
-        let pipeline = gpu.create_pipeline::<Vertex>("Font", include_str!("../../res/font.wgsl"), &[&texture_layout, &camera_layout]);
+        let pipeline = gpu.create_pipeline::<Vertex>("Font", include_str!("../../res/font.wgsl"), &[&texture_layout, &uniforms_layout]);
 
         let image = image::load_from_memory(include_bytes!("../../res/default.png")).unwrap();
         if image.width() % 16 != 0 {
@@ -82,13 +87,6 @@ impl FontRenderer {
 
         let texture_bind_group = gpu.create_texture(&image, &texture_layout);
 
-        let (camera_buf, camera_bind_group) = gpu.create_uniform(&[
-            1.0f32, 0., 0., 0.,
-            0., 1., 0., 0.,
-            0., 0., 1., 0.,
-            0., 0., 0., 1.,
-        ], &camera_layout);
-
         if let Some(index) = font_map.iter().position(|c| *c == ' ') {
             glyph_coords[index + 32].2 = 4. / 256.;
         }
@@ -96,12 +94,28 @@ impl FontRenderer {
         FontRenderer {
             pipeline,
             texture_bind_group,
-            camera_buf,
-            camera_bind_group,
+            uniforms_layout,
+            uniform_size,
 
             font_map,
             glyph_coords,
         }
+    }
+
+    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
+        &self.pipeline
+    }
+
+    pub fn texture_bind_group(&self) -> &wgpu::BindGroup {
+        &self.texture_bind_group
+    }
+
+    pub fn uniforms_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.uniforms_layout
+    }
+
+    pub fn uniform_size(&self) -> usize {
+        self.uniform_size
     }
 
     pub fn build_text(&self, gpu: &GpuWrapper, text: &str, shadow: bool) -> Option<super::Mesh> {
@@ -163,16 +177,6 @@ impl FontRenderer {
 
         Some(gpu.create_mesh(&vertices, &indices))
     }
-
-    pub fn prepare<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-        pass.set_pipeline(&self.pipeline);
-        pass.set_bind_group(0, &self.texture_bind_group, &[]);
-        pass.set_bind_group(1, &self.camera_bind_group, &[]);
-    }
-
-    pub fn set_camera(&self, gpu: &GpuWrapper, mvp: &glam::Mat4) {
-        gpu.update_buffer(&self.camera_buf, &mvp.to_cols_array());
-    }
 }
 
 #[repr(C)]
@@ -189,4 +193,11 @@ impl super::gpu::VertexAttribues for Vertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
         &ATTRIBS
     }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct FontMeshUniforms {
+    pub mvp: [f32; 16],
+    pub color: [f32; 3],
 }

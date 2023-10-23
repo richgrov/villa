@@ -1,8 +1,7 @@
 mod gui;
 mod render;
 
-use glam::{Mat4, Vec3};
-use gui::{TitleGui, Gui};
+use gui::TitleGui;
 use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::PhysicalSize};
 
 pub struct App {
@@ -20,7 +19,7 @@ impl App {
                 width: 1280,
                 height: 720,
             })
-            .with_title("golden")
+            .with_title("villa")
             .build(&event_loop)
             .unwrap();
         let window_size = window.inner_size();
@@ -61,42 +60,12 @@ impl App {
                 depth_stencil_attachment: None,
             });
 
-            self.draw_gui(&mut pass);
+            self.gui.gui.render(&self.renderer, &mut pass);
         }
-
-        self.renderer.gpu_mut().queue_commands(encoder.finish());
+        self.renderer.gpu().queue().submit(std::iter::once(encoder.finish()));
         frame.present();
 
         Ok(())
-    }
-
-    fn draw_gui<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {
-        let buttons = self.gui.buttons();
-        if buttons.is_empty() {
-            return
-        }
-
-        self.renderer.font().prepare(pass);
-
-        let (width, height) = (self.window_size.width as f32, self.window_size.height as f32);
-
-        let projection = Mat4::orthographic_lh(
-            0.,
-            width,
-            0.,
-            height,
-            -1.,
-            1.,
-        );
-
-        for button in buttons {
-            let model = Mat4::from_translation(Vec3::new(button.x() * width, button.y() * height, 0.)) * Mat4::from_scale(Vec3::new(100., 100., 1.));
-            let mvp = projection * model;
-            self.renderer.font().set_camera(self.renderer.gpu(), &mvp);
-
-            button.mesh().bind(pass);
-            button.mesh().draw(pass);
-        }
     }
 }
 

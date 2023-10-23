@@ -64,6 +64,18 @@ impl GpuWrapper {
         self.surface.configure(&self.device, &self.surface_config);
     }
 
+    pub fn device(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
+    pub fn window_size(&self) -> PhysicalSize<u32> {
+        self.last_surface_size
+    }
+
     pub fn create_pipeline<T: VertexAttribues>(
         &self,
         name: &str,
@@ -142,34 +154,11 @@ impl GpuWrapper {
         }
     }
 
-    pub fn create_uniform<T: bytemuck::Pod>(&self, data: &[T], layout: &wgpu::BindGroupLayout) -> (wgpu::Buffer, wgpu::BindGroup) {
-        let buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(data),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buf.as_entire_binding(),
-            }],
-            label: None,
-        });
-
-        (buf, bind_group)
-    }
-
     pub fn create_bind_group_layout(&self, label: &str, entries: &[wgpu::BindGroupLayoutEntry]) -> wgpu::BindGroupLayout {
         self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some(label),
             entries,
         })
-    }
-
-    pub fn update_buffer<T: bytemuck::Pod>(&self, buf: &wgpu::Buffer, data: &[T]) {
-        self.queue.write_buffer(buf, 0, bytemuck::cast_slice(data))
     }
 
     pub fn create_texture(&self, image: &image::DynamicImage, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
@@ -242,10 +231,6 @@ impl GpuWrapper {
         });
 
         Ok((frame, view, encoder))
-    }
-
-    pub fn queue_commands(&mut self, commands: wgpu::CommandBuffer) {
-        self.queue.submit(std::iter::once(commands));
     }
 }
 
