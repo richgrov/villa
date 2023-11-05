@@ -38,7 +38,7 @@ pub struct GuiRenderer {
 impl GuiRenderer {
     pub fn new(gpu: &GpuWrapper) -> GuiRenderer {
         let uniform_size = wgpu::util::align_to(
-            std::mem::size_of::<FontMeshUniforms>(),
+            std::mem::size_of::<Mat4>(),
             gpu.device().limits().min_uniform_buffer_offset_alignment as usize
         );
 
@@ -232,14 +232,14 @@ impl GuiRenderer {
             };
 
             let background_offset = button.primary_uniform_offset as usize;
-            let background_uniform = button.build_background_uniform(&projection, size.width as f32, size.height as f32);
+            let background_uniform = button.build_background_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
             let background_uniform_buf = bytemuck::bytes_of(&background_uniform);
-            buffer[background_offset..background_offset+std::mem::size_of::<FontMeshUniforms>()].copy_from_slice(background_uniform_buf);
+            buffer[background_offset..background_offset+std::mem::size_of::<Mat4>()].copy_from_slice(background_uniform_buf);
 
             let text_offset = button.primary_uniform_offset as usize + gui_spec.buttons.len() * self.font_uniform_size;
-            let text_uniform = button.build_text_uniform(&projection, size.width as f32, size.height as f32);
+            let text_uniform = button.build_text_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
             let text_uniform_buf = bytemuck::bytes_of(&text_uniform);
-            buffer[text_offset..text_offset+std::mem::size_of::<FontMeshUniforms>()].copy_from_slice(text_uniform_buf);
+            buffer[text_offset..text_offset+std::mem::size_of::<Mat4>()].copy_from_slice(text_uniform_buf);
 
             buttons.push(button);
         }
@@ -311,24 +311,14 @@ struct Button {
 }
 
 impl Button {
-    fn build_background_uniform(&self, projection: &Mat4, width: f32, height: f32) -> FontMeshUniforms {
+    fn build_background_mvp(&self, projection: &Mat4, width: f32, height: f32) -> Mat4 {
         let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(500., 100., 1.));
-        let mvp = *projection * model;
-
-        FontMeshUniforms {
-            mvp: mvp.to_cols_array(),
-            color: [1.0, 1.0, 1.0],
-        }
+        *projection * model
     }
 
-    fn build_text_uniform(&self, projection: &Mat4, width: f32, height: f32) -> FontMeshUniforms {
+    fn build_text_mvp(&self, projection: &Mat4, width: f32, height: f32) -> Mat4 {
         let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(100., 100., 1.));
-        let mvp = *projection * model;
-
-        FontMeshUniforms {
-            mvp: mvp.to_cols_array(),
-            color: [1.0, 1.0, 1.0],
-        }
+        *projection * model
     }
 }
 
@@ -368,11 +358,4 @@ impl crate::gpu::VertexAttribues for GuiTextureVertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
         &GUI_VERTEX_ATTRIBS
     }
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct FontMeshUniforms {
-    pub mvp: [f32; 16],
-    pub color: [f32; 3],
 }
