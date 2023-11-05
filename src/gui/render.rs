@@ -210,39 +210,17 @@ impl GuiRenderer {
     }
 
     pub fn build_gui(&self, gpu: &GpuWrapper, gui_spec: &GuiSpec) -> Gui {
-        let size = gpu.window_size();
-
-        let projection = Mat4::orthographic_lh(
-            0.,
-            size.width as f32,
-            0.,
-            size.height as f32,
-            -1.,
-            1.,
-        );
-
-        let mut buffer = vec![0u8; gui_spec.buttons.len() * self.font_uniform_size * 2];
-        let mut buttons = Vec::with_capacity(gui_spec.buttons.len());
-        for (x, y, text) in &gui_spec.buttons {
-            let button = Button {
+        let buttons: Vec<_> = gui_spec.buttons
+            .iter()
+            .enumerate()
+            .map(|(i, (x, y, text))| Button {
                 x: *x,
                 y: *y,
                 baked_text: self.build_text(&gpu, text, true).unwrap(),
-                primary_uniform_offset: (buttons.len() * self.font_uniform_size) as u32,
-            };
-
-            let background_offset = button.primary_uniform_offset as usize;
-            let background_uniform = button.build_background_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
-            let background_uniform_buf = bytemuck::bytes_of(&background_uniform);
-            buffer[background_offset..background_offset+std::mem::size_of::<Mat4>()].copy_from_slice(background_uniform_buf);
-
-            let text_offset = button.primary_uniform_offset as usize + gui_spec.buttons.len() * self.font_uniform_size;
-            let text_uniform = button.build_text_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
-            let text_uniform_buf = bytemuck::bytes_of(&text_uniform);
-            buffer[text_offset..text_offset+std::mem::size_of::<Mat4>()].copy_from_slice(text_uniform_buf);
-
-            buttons.push(button);
-        }
+                primary_uniform_offset: (i * self.font_uniform_size) as u32,
+            })
+            .collect();
+        let buffer = self.build_uniforms_buffer(gpu, &buttons);
 
         let button_uniforms = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Font uniforms buffer"),
@@ -284,6 +262,10 @@ impl GuiRenderer {
         }
     }
 
+    pub fn resize(&self, gpu: &GpuWrapper, gui: &Gui) {
+        gpu.queue().write_buffer(&gui.button_uniforms, 0, &self.build_uniforms_buffer(gpu, &gui.buttons));
+    }
+
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, gui: &'a Gui) {
         render_pass.set_pipeline(&self.button_pipeline);
         render_pass.set_bind_group(0, &self.gui_texture, &[]);
@@ -300,6 +282,33 @@ impl GuiRenderer {
             button.baked_text.bind(render_pass);
             button.baked_text.draw(render_pass);
         }
+    }
+
+    fn build_uniforms_buffer(&self, gpu: &GpuWrapper, buttons: &[Button]) -> Vec<u8> {
+        let size = gpu.window_size();
+        let projection = Mat4::orthographic_lh(
+            0.,
+            size.width as f32,
+            0.,
+            size.height as f32,
+            -1.,
+            1.,
+        );
+
+        // Multiply by 2 to hold the background sprite MVP and the text MVP in a single buffer
+        let mut buffer = vec![0u8; buttons.len() * self.font_uniform_size * 2];
+        for button in buttons {
+            let background_offset = button.primary_uniform_offset as usize;
+            let background_uniform = button.build_background_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
+            let background_uniform_buf = bytemuck::bytes_of(&background_uniform);
+            buffer[background_offset..background_offset+std::mem::size_of::<Mat4>()].copy_from_slice(background_uniform_buf);
+
+            let text_offset = button.primary_uniform_offset as usize + buttons.len() * self.font_uniform_size;
+            let text_uniform = button.build_text_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
+            let text_uniform_buf = bytemuck::bytes_of(&text_uniform);
+            buffer[text_offset..text_offset+std::mem::size_of::<Mat4>()].copy_from_slice(text_uniform_buf);
+        }
+        buffer
     }
 }
 
