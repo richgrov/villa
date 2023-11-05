@@ -29,6 +29,10 @@ pub struct GuiRenderer {
     font_map: Vec<char>,
     // Left, top, width
     glyph_coords: Vec<(f32, f32, f32)>,
+
+    button_pipeline: wgpu::RenderPipeline,
+    gui_texture: wgpu::BindGroup,
+    gui_button_large: Mesh,
 }
 
 impl GuiRenderer {
@@ -70,7 +74,7 @@ impl GuiRenderer {
             count: None,
         }]);
 
-        let pipeline = gpu.create_pipeline::<Vertex>("Font", include_str!("../../res/font.wgsl"), &[&texture_layout, &uniforms_layout]);
+        let pipeline = gpu.create_pipeline::<FontVertex>("Font", include_str!("../../res/font.wgsl"), &[&texture_layout, &uniforms_layout]);
 
         let image = image::load_from_memory(include_bytes!("../../res/default.png")).unwrap();
         if image.width() % 16 != 0 {
@@ -109,14 +113,39 @@ impl GuiRenderer {
             glyph_coords[index + 32].2 = 4. / 256.;
         }
 
+        let gui_texture_pipeline = gpu.create_pipeline::<GuiTextureVertex>("Gui Texture", include_str!("../../res/gui.wgsl"), &[&texture_layout, &uniforms_layout]);
+        let gui_image = image::load_from_memory(include_bytes!("../../res/gui.png")).unwrap();
+        let gui_texture = gpu.create_texture(&gui_image, &texture_layout);
+        let gui_button_large = gpu.create_mesh(&[
+            GuiTextureVertex {
+                pos: [0., 0.],
+                uv: [0., 65./256.],
+            },
+            GuiTextureVertex {
+                pos: [1., 0.],
+                uv: [199./256., 65./256.],
+            },
+            GuiTextureVertex {
+                pos: [1., 1.],
+                uv: [199./256., 46./256.],
+            },
+            GuiTextureVertex {
+                pos: [0., 1.],
+                uv: [0., 46./256.],
+            },
+        ], &[0u16, 1, 2, 2, 3, 0]);
+
         GuiRenderer {
             font_pipeline: pipeline,
             font_texture: texture_bind_group,
             font_uniforms_layout: uniforms_layout,
             font_uniform_size: uniform_size,
-
             font_map,
             glyph_coords,
+
+            button_pipeline: gui_texture_pipeline,
+            gui_texture,
+            gui_button_large,
         }
     }
 
@@ -134,22 +163,22 @@ impl GuiRenderer {
             let render_width = width * 16.;
 
             let vertex_data = [
-                Vertex {
+                FontVertex {
                     pos: [x_offset, 0.],
                     uv: [left, top + 1./16.],
                     color: [1.0, 1.0, 1.0],
                 },
-                Vertex {
+                FontVertex {
                     pos: [x_offset + render_width, 0.],
                     uv: [left + width, top + 1./16.],
                     color: [1.0, 1.0, 1.0],
                 },
-                Vertex {
+                FontVertex {
                     pos: [x_offset + render_width, 1.],
                     uv: [left + width, top],
                     color: [1.0, 1.0, 1.0],
                 },
-                Vertex {
+                FontVertex {
                     pos: [x_offset, 1.],
                     uv: [left, top],
                     color: [1.0, 1.0, 1.0],
@@ -192,7 +221,7 @@ impl GuiRenderer {
             1.,
         );
 
-        let mut buffer = vec![0u8; gui_spec.buttons.len() * self.font_uniform_size];
+        let mut buffer = vec![0u8; gui_spec.buttons.len() * self.font_uniform_size * 2];
         let mut buttons = Vec::with_capacity(gui_spec.buttons.len());
         for (x, y, text) in &gui_spec.buttons {
             let button = Button {
@@ -202,44 +231,72 @@ impl GuiRenderer {
                 primary_uniform_offset: (buttons.len() * self.font_uniform_size) as u32,
             };
 
-            let uniform = button.build_uniform(&projection, size.width as f32, size.height as f32);
-            let uniform_buf = bytemuck::bytes_of(&uniform);
-            let offset = button.primary_uniform_offset as usize;
-            buffer[offset..offset+std::mem::size_of::<FontMeshUniforms>()].copy_from_slice(uniform_buf);
+            let background_offset = button.primary_uniform_offset as usize;
+            let background_uniform = button.build_background_uniform(&projection, size.width as f32, size.height as f32);
+            let background_uniform_buf = bytemuck::bytes_of(&background_uniform);
+            buffer[background_offset..background_offset+std::mem::size_of::<FontMeshUniforms>()].copy_from_slice(background_uniform_buf);
+
+            let text_offset = button.primary_uniform_offset as usize + gui_spec.buttons.len() * self.font_uniform_size;
+            let text_uniform = button.build_text_uniform(&projection, size.width as f32, size.height as f32);
+            let text_uniform_buf = bytemuck::bytes_of(&text_uniform);
+            buffer[text_offset..text_offset+std::mem::size_of::<FontMeshUniforms>()].copy_from_slice(text_uniform_buf);
+
             buttons.push(button);
         }
 
-        let uniforms_buffer = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let button_uniforms = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Font uniforms buffer"),
             contents: bytemuck::cast_slice(&buffer),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let bind_group = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
+        let button_background_bind = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &self.font_uniforms_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &uniforms_buffer,
+                    buffer: &button_uniforms,
                     offset: 0,
                     size: wgpu::BufferSize::new(self.font_uniform_size as u64),
                 }),
             }],
-            label: None,
+            label: Some("Button background binding"),
+        });
+
+        let button_text_bind = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.font_uniforms_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &button_uniforms,
+                    offset: (gui_spec.buttons.len() * self.font_uniform_size) as u64,
+                    size: wgpu::BufferSize::new(self.font_uniform_size as u64),
+                }),
+            }],
+            label: Some("Button text binding"),
         });
 
         Gui {
             buttons,
-            button_uniforms: uniforms_buffer,
-            uniforms_bind_group: bind_group,
+            button_uniforms,
+            button_background_bind,
+            button_text_bind,
         }
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, gui: &'a Gui) {
+        render_pass.set_pipeline(&self.button_pipeline);
+        render_pass.set_bind_group(0, &self.gui_texture, &[]);
+        self.gui_button_large.bind(render_pass);
+        for button in &gui.buttons {
+            render_pass.set_bind_group(1, &gui.button_background_bind, &[button.primary_uniform_offset]);
+            self.gui_button_large.draw(render_pass);
+        }
+
         render_pass.set_pipeline(&self.font_pipeline);
         render_pass.set_bind_group(0, &self.font_texture, &[]);
         for button in &gui.buttons {
-            render_pass.set_bind_group(1, &gui.uniforms_bind_group, &[button.primary_uniform_offset]);
+            render_pass.set_bind_group(1, &gui.button_text_bind, &[button.primary_uniform_offset]);
             button.baked_text.bind(render_pass);
             button.baked_text.draw(render_pass);
         }
@@ -254,7 +311,17 @@ struct Button {
 }
 
 impl Button {
-    fn build_uniform(&self, projection: &Mat4, width: f32, height: f32) -> FontMeshUniforms {
+    fn build_background_uniform(&self, projection: &Mat4, width: f32, height: f32) -> FontMeshUniforms {
+        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(500., 100., 1.));
+        let mvp = *projection * model;
+
+        FontMeshUniforms {
+            mvp: mvp.to_cols_array(),
+            color: [1.0, 1.0, 1.0],
+        }
+    }
+
+    fn build_text_uniform(&self, projection: &Mat4, width: f32, height: f32) -> FontMeshUniforms {
         let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(100., 100., 1.));
         let mvp = *projection * model;
 
@@ -268,12 +335,13 @@ impl Button {
 pub struct Gui {
     buttons: Vec<Button>,
     button_uniforms: wgpu::Buffer,
-    uniforms_bind_group: wgpu::BindGroup,
+    button_background_bind: wgpu::BindGroup,
+    button_text_bind: wgpu::BindGroup,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
+struct FontVertex {
     pos: [f32; 2],
     uv: [f32; 2],
     color: [f32; 3],
@@ -281,9 +349,24 @@ struct Vertex {
 
 const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
 
-impl crate::gpu::VertexAttribues for Vertex {
+impl crate::gpu::VertexAttribues for FontVertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
         &ATTRIBS
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct GuiTextureVertex {
+    pos: [f32; 2],
+    uv: [f32; 2],
+}
+
+const GUI_VERTEX_ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+
+impl crate::gpu::VertexAttribues for GuiTextureVertex {
+    fn attributes() -> &'static [wgpu::VertexAttribute] {
+        &GUI_VERTEX_ATTRIBS
     }
 }
 
