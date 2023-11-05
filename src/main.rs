@@ -1,13 +1,15 @@
 mod gui;
-mod render;
+mod gpu;
 
+use gpu::GpuWrapper;
 use gui::TitleGui;
 use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::PhysicalSize};
 
 pub struct App {
     window: Window,
     window_size: PhysicalSize<u32>,
-    renderer: render::Renderer,
+    gpu: gpu::GpuWrapper,
+    gui_renderer: gui::GuiRenderer,
 
     gui: TitleGui,
 }
@@ -24,13 +26,15 @@ impl App {
             .unwrap();
         let window_size = window.inner_size();
 
-        let renderer = render::Renderer::new(&window).await;
-        let title = TitleGui::new(&renderer);
+        let gpu = GpuWrapper::new(&window).await;
+        let gui_renderer = gui::GuiRenderer::new(&gpu);
+        let title = TitleGui::new(&gpu, &gui_renderer);
 
         App {
             window,
             window_size,
-            renderer,
+            gpu,
+            gui_renderer,
             gui: title,
         }
     }
@@ -40,11 +44,11 @@ impl App {
 
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
         self.window_size = new_size;
-        self.renderer.gpu_mut().handle_resize(new_size);
+        self.gpu.handle_resize(new_size);
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let (frame, view, mut encoder) = self.renderer.gpu().begin_draw()?;
+        let (frame, view, mut encoder) = self.gpu.begin_draw()?;
 
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -60,9 +64,9 @@ impl App {
                 depth_stencil_attachment: None,
             });
 
-            self.gui.gui.render(&self.renderer, &mut pass);
+            self.gui_renderer.render(&mut pass, &self.gui.gui);
         }
-        self.renderer.gpu().queue().submit(std::iter::once(encoder.finish()));
+        self.gpu.queue().submit(std::iter::once(encoder.finish()));
         frame.present();
 
         Ok(())
@@ -94,7 +98,7 @@ fn main() {
                     app.update();
 
                     match app.draw() {
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => app.renderer.gpu().reconfigure_surface(),
+                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => app.gpu.reconfigure_surface(),
                         Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                         Err(e) => eprintln!("{:?}", e),
                         _ => {},

@@ -1,5 +1,5 @@
+mod render;
 mod title;
-mod ui;
 
 pub use title::TitleGui;
-pub use ui::*;
+pub use render::{GuiSpec, GuiRenderer, Gui};
