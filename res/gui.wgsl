@@ -3,8 +3,13 @@ struct VertexOutput {
 	@location(0) uv: vec2<f32>,
 }
 
+struct VertexUniforms {
+	mvp: mat4x4<f32>,
+	y_offset: f32,
+}
+
 @group(1) @binding(0)
-var<uniform> mvp: mat4x4<f32>;
+var<uniform> uniforms: VertexUniforms;
 
 @vertex
 fn vs_main(
@@ -12,8 +17,8 @@ fn vs_main(
 	@location(1) uv: vec2<f32>,
 ) -> VertexOutput {
 	var result: VertexOutput;
-	result.uv = uv;
-	result.position = mvp * vec4<f32>(position, 0.0, 1.0);
+	result.uv = vec2(uv.x, uv.y + uniforms.y_offset);
+	result.position = uniforms.mvp * vec4<f32>(position, 0.0, 1.0);
 	return result;
 }
 

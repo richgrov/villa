@@ -45,7 +45,7 @@ impl App {
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
         self.window_size = new_size;
         self.gpu.handle_resize(new_size);
-        self.gui_renderer.resize(&self.gpu, &self.gui.gui);
+        self.gui_renderer.resize(&self.gpu, &mut self.gui.gui);
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
