@@ -1,5 +1,6 @@
 use glam::{Mat4, Vec3};
 use image::GenericImageView;
+use winit::dpi::PhysicalPosition;
 
 use crate::gpu::{GpuWrapper, Mesh};
 
@@ -264,6 +265,7 @@ impl GuiRenderer {
 
         let mut gui = Gui {
             buttons,
+            hovered_button_index: None,
             uniform_staging: vec![0u8; uniform_buffer_size],
             button_uniforms,
             button_background_bind,
@@ -284,9 +286,9 @@ impl GuiRenderer {
             1.,
         );
 
-        for button in &gui.buttons {
+        for (i, button) in gui.buttons.iter().enumerate() {
             let background_offset = button.primary_uniform_offset as usize;
-            let background_uniform = button.build_background_uniform(&projection, size.width as f32, size.height as f32);
+            let background_uniform = button.build_background_uniform(&projection, size.width as f32, size.height as f32, Some(i) == gui.hovered_button_index);
             let background_uniform_buf = bytemuck::bytes_of(&background_uniform);
             gui.uniform_staging[background_offset..background_offset+std::mem::size_of::<ButtonBackgroundUniform>()].copy_from_slice(background_uniform_buf);
 
@@ -296,6 +298,32 @@ impl GuiRenderer {
             gui.uniform_staging[text_offset..text_offset+std::mem::size_of::<Mat4>()].copy_from_slice(text_uniform_buf);
         }
         gpu.queue().write_buffer(&gui.button_uniforms, 0, &gui.uniform_staging);
+    }
+
+    pub fn mouse_moved(&self, gpu: &GpuWrapper, gui: &mut Gui, position: PhysicalPosition<f32>) {
+        let window_width = gpu.window_size().width as f32;
+        let window_height = gpu.window_size().height as f32;
+        let mouse_x = position.x as f32;
+        let mouse_y = position.y as f32;
+
+        let mut hovered_index = None;
+        for (i, button) in gui.buttons.iter().enumerate() {
+            let button_x = button.x * window_width;
+            let button_y = button.y * window_height;
+
+            let inside = mouse_x > button_x && mouse_x < button_x + Button::WIDTH
+                && mouse_y > button_y && mouse_y < button_y + Button::HEIGHT;
+
+            if inside {
+                hovered_index = Some(i);
+                break
+            }
+        }
+
+        if hovered_index != gui.hovered_button_index {
+            gui.hovered_button_index = hovered_index;
+            self.resize(gpu, gui);
+        }
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, gui: &'a Gui) {
@@ -325,22 +353,28 @@ struct Button {
 }
 
 impl Button {
-    fn build_background_uniform(&self, projection: &Mat4, width: f32, height: f32) -> ButtonBackgroundUniform {
-        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(500., 100., 1.));
+    const WIDTH: f32 = 500.;
+    const HEIGHT: f32 = 50.;
+
+    fn build_background_uniform(&self, projection: &Mat4, width: f32, height: f32, hovered: bool) -> ButtonBackgroundUniform {
+        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.))
+            * Mat4::from_scale(Vec3::new(Self::WIDTH, Self::HEIGHT, 1.));
+
         ButtonBackgroundUniform {
             mvp: (*projection * model).to_cols_array(),
-            y_offset: 0.,
+            y_offset: if hovered { 40./256. } else { 20./256. },
         }
     }
 
     fn build_text_mvp(&self, projection: &Mat4, width: f32, height: f32) -> Mat4 {
-        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(100., 100., 1.));
+        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(50., Self::HEIGHT, 1.));
         *projection * model
     }
 }
 
 pub struct Gui {
     buttons: Vec<Button>,
+    hovered_button_index: Option<usize>,
     uniform_staging: Vec<u8>,
     button_uniforms: wgpu::Buffer,
     button_background_bind: wgpu::BindGroup,

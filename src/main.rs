@@ -3,7 +3,7 @@ mod gpu;
 
 use gpu::GpuWrapper;
 use gui::TitleGui;
-use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::PhysicalSize};
+use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}};
 
 pub struct App {
     window: Window,
@@ -46,6 +46,14 @@ impl App {
         self.window_size = new_size;
         self.gpu.handle_resize(new_size);
         self.gui_renderer.resize(&self.gpu, &mut self.gui.gui);
+    }
+
+    fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
+        let converted = PhysicalPosition::new(
+            position.x as f32,
+            self.window_size.height as f32 - position.y as f32
+        );
+        self.gui_renderer.mouse_moved(&self.gpu, &mut self.gui.gui, converted);
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -109,6 +117,7 @@ fn main() {
                     WindowEvent::Resized(size) => app.handle_resize(size),
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CursorMoved { device_id, position, modifiers } => app.mouse_moved(position),
                     _ => {},
                 },
                 Event::MainEventsCleared => {
