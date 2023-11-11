@@ -154,13 +154,6 @@ impl GpuWrapper {
         }
     }
 
-    pub fn create_bind_group_layout(&self, label: &str, entries: &[wgpu::BindGroupLayoutEntry]) -> wgpu::BindGroupLayout {
-        self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(label),
-            entries,
-        })
-    }
-
     pub fn create_texture(&self, image: &image::DynamicImage, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
         let dimensions = wgpu::Extent3d {
             width: image.width(),

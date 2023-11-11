@@ -1,5 +1,6 @@
 mod gui;
 mod gpu;
+mod uniforms;
 
 use gpu::GpuWrapper;
 use gui::TitleGui;
