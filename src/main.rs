@@ -118,7 +118,7 @@ fn main() {
                     WindowEvent::Resized(size) => app.handle_resize(size),
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::CursorMoved { device_id, position, modifiers } => app.mouse_moved(position),
+                    WindowEvent::CursorMoved { position, .. } => app.mouse_moved(position),
                     _ => {},
                 },
                 Event::MainEventsCleared => {
