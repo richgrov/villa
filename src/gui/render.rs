@@ -15,13 +15,14 @@ impl GuiSpec {
         }
     }
 
-    pub fn button(mut self, x: f32, y: f32, text: &str) -> Self {
-        self.buttons.push((x, y, text.to_owned()));
-        self
+    pub fn button(&mut self, text: &str) -> usize {
+        let id = self.buttons.len();
+        self.buttons.push((0., 0., text.to_owned()));
+        id
     }
 }
 
-pub struct GuiRenderer {
+pub struct GuiResources {
     font_pipeline: wgpu::RenderPipeline,
     font_texture: wgpu::BindGroup,
     font_uniform_layout: UniformSpec,
@@ -35,8 +36,8 @@ pub struct GuiRenderer {
     button_uniform_layout: UniformSpec,
 }
 
-impl GuiRenderer {
-    pub fn new(gpu: &GpuWrapper) -> GuiRenderer {
+impl GuiResources {
+    pub fn new(gpu: &GpuWrapper) -> GuiResources {
         let texture_layout = gpu.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Font Texture"),
             entries: &[
@@ -125,7 +126,7 @@ impl GuiRenderer {
             },
         ], &[0u16, 1, 2, 2, 3, 0]);
 
-        GuiRenderer {
+        GuiResources {
             font_pipeline: pipeline,
             font_texture: texture_bind_group,
             font_uniform_layout,
@@ -217,96 +218,30 @@ impl GuiRenderer {
             })
             .collect();
 
-        let mut gui = Gui {
+        Gui {
             buttons,
             hovered_button_index: None,
             uniform_storage,
-        };
-        self.resize(gpu, &mut gui);
-        gui
-    }
-
-    pub fn resize(&self, gpu: &GpuWrapper, gui: &mut Gui) {
-        let size = gpu.window_size();
-        let projection = Mat4::orthographic_lh(
-            0.,
-            size.width as f32,
-            0.,
-            size.height as f32,
-            -1.,
-            1.,
-        );
-
-        for (i, button) in gui.buttons.iter().enumerate() {
-            let background_uniform = button.build_background_uniform(&projection, size.width as f32, size.height as f32, Some(i) == gui.hovered_button_index);
-            gui.uniform_storage.set_element(0, i, background_uniform);
-
-            let text_uniform = button.build_text_mvp(&projection, size.width as f32, size.height as f32).to_cols_array();
-            gui.uniform_storage.set_element(1, i, text_uniform);
-        }
-        gui.uniform_storage.update(gpu);
-    }
-
-    pub fn mouse_moved(&self, gpu: &GpuWrapper, gui: &mut Gui, position: PhysicalPosition<f32>) {
-        let window_width = gpu.window_size().width as f32;
-        let window_height = gpu.window_size().height as f32;
-        let mouse_x = position.x as f32;
-        let mouse_y = position.y as f32;
-
-        let mut hovered_index = None;
-        for (i, button) in gui.buttons.iter().enumerate() {
-            let button_x = button.x * window_width;
-            let button_y = button.y * window_height;
-
-            let inside = mouse_x > button_x && mouse_x < button_x + Button::WIDTH
-                && mouse_y > button_y && mouse_y < button_y + Button::HEIGHT;
-
-            if inside {
-                hovered_index = Some(i);
-                break
-            }
-        }
-
-        if hovered_index != gui.hovered_button_index {
-            gui.hovered_button_index = hovered_index;
-            self.resize(gpu, gui);
-        }
-    }
-
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, gui: &'a Gui) {
-        render_pass.set_pipeline(&self.button_pipeline);
-        render_pass.set_bind_group(0, &self.gui_texture, &[]);
-        self.gui_button_large.bind(render_pass);
-        for button in &gui.buttons {
-            render_pass.set_bind_group(1, gui.uniform_storage.bind_group(0), &[button.text_uniform_offset]);
-            self.gui_button_large.draw(render_pass);
-        }
-
-        render_pass.set_pipeline(&self.font_pipeline);
-        render_pass.set_bind_group(0, &self.font_texture, &[]);
-        for button in &gui.buttons {
-            render_pass.set_bind_group(1, gui.uniform_storage.bind_group(1), &[button.button_uniform_offset]);
-            button.baked_text.bind(render_pass);
-            button.baked_text.draw(render_pass);
         }
     }
 }
 
 struct Button {
-    x: f32,
-    y: f32,
+    pub x: f32,
+    pub y: f32,
     baked_text: Mesh,
     text_uniform_offset: wgpu::DynamicOffset,
     button_uniform_offset: wgpu::DynamicOffset,
 }
 
 impl Button {
-    const WIDTH: f32 = 500.;
-    const HEIGHT: f32 = 50.;
+    const BACKGROUND_WIDTH: f32 = 800.;
+    const BACKGROUND_HEIGHT: f32 = 80.;
+    const TEXT_SCALE: f32 = 60.0;
 
-    fn build_background_uniform(&self, projection: &Mat4, width: f32, height: f32, hovered: bool) -> ButtonBackgroundUniform {
-        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.))
-            * Mat4::from_scale(Vec3::new(Self::WIDTH, Self::HEIGHT, 1.));
+    fn build_background_uniform(&self, projection: &Mat4, hovered: bool) -> ButtonBackgroundUniform {
+        let model = Mat4::from_translation(Vec3::new(self.x, self.y, 0.))
+            * Mat4::from_scale(Vec3::new(Self::BACKGROUND_WIDTH, Self::BACKGROUND_HEIGHT, 1.));
 
         ButtonBackgroundUniform {
             mvp: (*projection * model).to_cols_array(),
@@ -314,8 +249,9 @@ impl Button {
         }
     }
 
-    fn build_text_mvp(&self, projection: &Mat4, width: f32, height: f32) -> Mat4 {
-        let model = Mat4::from_translation(Vec3::new(self.x * width, self.y * height, 0.)) * Mat4::from_scale(Vec3::new(50., Self::HEIGHT, 1.));
+    fn build_text_mvp(&self, projection: &Mat4) -> Mat4 {
+        let model = Mat4::from_translation(Vec3::new(self.x, self.y, 0.))
+            * Mat4::from_scale(Vec3::new(Self::TEXT_SCALE, Self::TEXT_SCALE, 1.));
         *projection * model
     }
 }
@@ -324,6 +260,75 @@ pub struct Gui {
     buttons: Vec<Button>,
     hovered_button_index: Option<usize>,
     uniform_storage: UniformStorage,
+}
+
+impl Gui {
+    pub fn set_button_pos(&mut self, id: usize, x: f32, y: f32) {
+        let btn = &mut self.buttons[id];
+        btn.x = x;
+        btn.y = y;
+    }
+
+    pub fn resize(&mut self, gpu: &GpuWrapper) {
+        let width = gpu.window_size().width as f32;
+        let height = gpu.window_size().height as f32;
+        let projection = Mat4::orthographic_lh(
+            0.,
+            width,
+            0.,
+            height,
+            -1.,
+            1.,
+        );
+
+        for (i, button) in self.buttons.iter().enumerate() {
+            let background_uniform = button.build_background_uniform(&projection, Some(i) == self.hovered_button_index);
+            self.uniform_storage.set_element(0, i, background_uniform);
+
+            let text_uniform = button.build_text_mvp(&projection).to_cols_array();
+            self.uniform_storage.set_element(1, i, text_uniform);
+        }
+        self.uniform_storage.update(gpu);
+    }
+
+    pub fn mouse_moved(&mut self, gpu: &GpuWrapper, position: PhysicalPosition<f32>) {
+        let mouse_x = position.x as f32;
+        let mouse_y = position.y as f32;
+
+        let mut hovered_index = None;
+        for (i, button) in self.buttons.iter().enumerate() {
+            let inside = mouse_x > button.x && mouse_x < button.x + Button::BACKGROUND_WIDTH
+                && mouse_y > button.y && mouse_y < button.y + Button::BACKGROUND_HEIGHT;
+
+            if inside {
+                hovered_index = Some(i);
+                break
+            }
+        }
+
+        if hovered_index != self.hovered_button_index {
+            self.hovered_button_index = hovered_index;
+            self.resize(gpu);
+        }
+    }
+
+    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, resources: &'a GuiResources) {
+        render_pass.set_pipeline(&resources.button_pipeline);
+        render_pass.set_bind_group(0, &resources.gui_texture, &[]);
+        resources.gui_button_large.bind(render_pass);
+        for button in &self.buttons {
+            render_pass.set_bind_group(1, self.uniform_storage.bind_group(0), &[button.text_uniform_offset]);
+            resources.gui_button_large.draw(render_pass);
+        }
+
+        render_pass.set_pipeline(&resources.font_pipeline);
+        render_pass.set_bind_group(0, &resources.font_texture, &[]);
+        for button in &self.buttons {
+            render_pass.set_bind_group(1, self.uniform_storage.bind_group(1), &[button.button_uniform_offset]);
+            button.baked_text.bind(render_pass);
+            button.baked_text.draw(render_pass);
+        }
+    }
 }
 
 #[repr(C)]

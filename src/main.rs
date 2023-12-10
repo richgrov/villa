@@ -2,6 +2,8 @@ mod gui;
 mod gpu;
 mod uniforms;
 
+use std::rc::Rc;
+
 use gpu::GpuWrapper;
 use gui::TitleGui;
 use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}};
@@ -10,7 +12,6 @@ pub struct App {
     window: Window,
     window_size: PhysicalSize<u32>,
     gpu: gpu::GpuWrapper,
-    gui_renderer: gui::GuiRenderer,
 
     gui: TitleGui,
 }
@@ -25,17 +26,18 @@ impl App {
             .with_title("villa")
             .build(&event_loop)
             .unwrap();
-        let window_size = window.inner_size();
 
         let gpu = GpuWrapper::new(&window).await;
-        let gui_renderer = gui::GuiRenderer::new(&gpu);
-        let title = TitleGui::new(&gpu, &gui_renderer);
+        let gui_resources = Rc::new(gui::GuiResources::new(&gpu));
+        let mut title = TitleGui::new(&gpu, gui_resources.clone());
+
+        let window_size = window.inner_size();
+        title.handle_resize(&gpu, window_size.width as f32, window_size.height as f32);
 
         App {
             window,
             window_size,
             gpu,
-            gui_renderer,
             gui: title,
         }
     }
@@ -46,7 +48,7 @@ impl App {
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
         self.window_size = new_size;
         self.gpu.handle_resize(new_size);
-        self.gui_renderer.resize(&self.gpu, &mut self.gui.gui);
+        self.gui.handle_resize(&self.gpu, new_size.width as f32, new_size.height as f32);
     }
 
     fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
@@ -54,7 +56,7 @@ impl App {
             position.x as f32,
             self.window_size.height as f32 - position.y as f32
         );
-        self.gui_renderer.mouse_moved(&self.gpu, &mut self.gui.gui, converted);
+        self.gui.handle_mouse_move(&self.gpu, converted);
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -74,7 +76,7 @@ impl App {
                 depth_stencil_attachment: None,
             });
 
-            self.gui_renderer.render(&mut pass, &self.gui.gui);
+            self.gui.draw(&mut pass);
         }
         self.gpu.queue().submit(std::iter::once(encoder.finish()));
         frame.present();
