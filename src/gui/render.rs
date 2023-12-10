@@ -4,6 +4,8 @@ use winit::dpi::PhysicalPosition;
 
 use crate::{gpu::{GpuWrapper, Mesh}, uniforms::{UniformStorage, UniformSpec}};
 
+use super::BakedText;
+
 pub struct GuiSpec {
     buttons: Vec<String>,
 }
@@ -26,14 +28,38 @@ pub struct GuiResources {
     font_pipeline: wgpu::RenderPipeline,
     font_texture: wgpu::BindGroup,
     font_uniform_layout: UniformSpec,
-    font_map: Vec<char>,
-    // Left, top, width
-    glyph_coords: Vec<(f32, f32, f32)>,
+    pub(super) font_map: Vec<char>,
+    pub(super) character_uv: Vec<CharacterUv>,
 
     button_pipeline: wgpu::RenderPipeline,
     gui_texture: wgpu::BindGroup,
     gui_button_large: Mesh,
     button_uniform_layout: UniformSpec,
+}
+
+#[derive(Clone, Debug)]
+pub struct CharacterUv {
+    left: f32,
+    top: f32,
+    width: f32,
+}
+
+impl CharacterUv {
+    pub fn zero() -> CharacterUv {
+        CharacterUv { left: 0., top: 0., width: 0. }
+    }
+
+    pub fn left(&self) -> f32 {
+        self.left
+    }
+
+    pub fn top(&self) -> f32 {
+        self.top
+    }
+
+    pub fn width(&self) -> f32 {
+        self.width
+    }
 }
 
 impl GuiResources {
@@ -77,31 +103,31 @@ impl GuiResources {
 
         let cell_width = image.width() / 16;
         let cell_height = image.height() / 16;
-        let widthf = image.width() as f32;
-        let mut glyph_coords = vec![(0f32, 0f32, 0f32); 256];
+        let mut character_uv = vec![CharacterUv::zero(); 256];
         let font_map: Vec<_> = include_str!("../../res/font.txt").to_owned().replace("\n", "").chars().collect();
-        for x in 0..image.width() {
-            for y in 0..image.height() {
-                let current_cell_x = x / cell_width;
-                let current_cell_y = y / cell_height;
-                if image.get_pixel(x, y)[3] != 0 {
-                    let size = &mut glyph_coords[(current_cell_y * 16 + current_cell_x) as usize];
-                    size.2 = size.2.max(((x + 1) % cell_width) as f32 / widthf);
+        for cell_x in 0..16 {
+            for cell_y in 0..16 {
+                let uv = &mut character_uv[(cell_y * 16 + cell_x) as usize];
+                uv.left = cell_x as f32 / 16.;
+                uv.top = cell_y as f32 / 16.;
+
+                'find_width: for x_pixel in (0..cell_width).rev() {
+                    for y_pixel in 0..cell_height {
+                        let image_x = x_pixel + cell_x * cell_width;
+                        let image_y = y_pixel + cell_y * cell_height;
+                        if image.get_pixel(image_x, image_y)[3] != 0 {
+                            uv.width = (x_pixel + 1) as f32 / image.width() as f32;
+                            break 'find_width
+                        }
+                    }
                 }
-            }
-        }
-        for x in 0..16 {
-            for y in 0..16 {
-                let size = &mut glyph_coords[(y * 16 + x) as usize];
-                size.0 = x as f32 / 16.;
-                size.1 = y as f32 / 16.;
             }
         }
 
         let texture_bind_group = gpu.create_texture(&image, &texture_layout);
 
         if let Some(index) = font_map.iter().position(|c| *c == ' ') {
-            glyph_coords[index + 32].2 = 4. / 256.;
+            character_uv[index + 32].width = 4. / 256.;
         }
 
         let gui_texture_pipeline = gpu.create_pipeline::<GuiTextureVertex>("Gui Texture", include_str!("../../res/gui.wgsl"), &[&texture_layout, button_uniform_layout.layout()]);
@@ -131,73 +157,13 @@ impl GuiResources {
             font_texture: texture_bind_group,
             font_uniform_layout,
             font_map,
-            glyph_coords,
+            character_uv,
 
             button_pipeline: gui_texture_pipeline,
             button_uniform_layout,
             gui_texture,
             gui_button_large,
         }
-    }
-
-    pub fn build_text(&self, gpu: &GpuWrapper, text: &str, shadow: bool) -> Option<Mesh> {
-        let mesh_factor = if shadow { 2 } else { 1 };
-        let mut vertices = Vec::with_capacity(text.len() * 4 * mesh_factor);
-        let mut indices = Vec::with_capacity(text.len() * 6 * mesh_factor);
-        let mut x_offset = 0.;
-        let mut index_offset = 0u32;
-
-        for c in text.chars() {
-            // Minecraft ignores the first 2 rows of characters so add 32 to the index
-            let index = self.font_map.iter().position(|ch| *ch == c)? + 32;
-            let (left, top, width) = self.glyph_coords[index];
-            let render_width = width * 16.;
-
-            let vertex_data = [
-                FontVertex {
-                    pos: [x_offset, 0.],
-                    uv: [left, top + 1./16.],
-                    color: [1.0, 1.0, 1.0],
-                },
-                FontVertex {
-                    pos: [x_offset + render_width, 0.],
-                    uv: [left + width, top + 1./16.],
-                    color: [1.0, 1.0, 1.0],
-                },
-                FontVertex {
-                    pos: [x_offset + render_width, 1.],
-                    uv: [left + width, top],
-                    color: [1.0, 1.0, 1.0],
-                },
-                FontVertex {
-                    pos: [x_offset, 1.],
-                    uv: [left, top],
-                    color: [1.0, 1.0, 1.0],
-                },
-            ];
-
-            if shadow {
-                let mut shadow_text = vertex_data.clone();
-                for v in &mut shadow_text {
-                    v.pos[0] += 1./16.;
-                    v.pos[1] -= 1./16.;
-                    v.color = [0.24705882352, 0.24705882352, 0.24705882352];
-                }
-                vertices.extend_from_slice(&shadow_text);
-            }
-
-            vertices.extend_from_slice(&vertex_data);
-            x_offset += render_width + 1. / 16. /* one pixel space between letters */;
-
-            for _ in 0..mesh_factor {
-                indices.extend_from_slice(&[
-                    index_offset, index_offset + 1, index_offset + 2, index_offset + 2, index_offset + 3, index_offset
-                ]);
-                index_offset += 4;
-            }
-        }
-
-        Some(gpu.create_mesh(&vertices, &indices))
     }
 
     pub fn build_gui(&self, gpu: &GpuWrapper, gui_spec: &GuiSpec) -> Gui {
@@ -214,7 +180,7 @@ impl GuiResources {
                 y: 0.,
                 width: 0.,
                 height: 0.,
-                baked_text: self.build_text(&gpu, text, true).unwrap(),
+                baked_text: BakedText::new(&gpu, self, text, true).unwrap(),
                 text_uniform_offset: self.font_uniform_layout.offset_of(i),
                 button_uniform_offset: self.button_uniform_layout.offset_of(i),
             })
@@ -233,7 +199,7 @@ pub struct Button {
     y: f32,
     width: f32,
     height: f32,
-    baked_text: Mesh,
+    baked_text: BakedText,
     text_uniform_offset: wgpu::DynamicOffset,
     button_uniform_offset: wgpu::DynamicOffset,
 }
@@ -354,10 +320,10 @@ impl Gui {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct FontVertex {
-    pos: [f32; 2],
-    uv: [f32; 2],
-    color: [f32; 3],
+pub(super) struct FontVertex {
+    pub(super) pos: [f32; 2],
+    pub(super) uv: [f32; 2],
+    pub(super) color: [f32; 3],
 }
 
 const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
