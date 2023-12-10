@@ -206,7 +206,6 @@ pub struct Button {
 
 impl Button {
     const BUTTON_TEXTURE_ASPECT: f32 = 10.;
-    const TEXT_SCALE: f32 = 60.0;
 
     fn build_background_uniform(&self, projection: Mat4, hovered: bool) -> ButtonBackgroundUniform {
         let model = Mat4::from_translation(Vec3::new(self.x, self.y, 0.))
@@ -219,8 +218,11 @@ impl Button {
     }
 
     fn build_text_mvp(&self, projection: &Mat4) -> Mat4 {
-        let model = Mat4::from_translation(Vec3::new(self.x, self.y, 0.))
-            * Mat4::from_scale(Vec3::new(Self::TEXT_SCALE, Self::TEXT_SCALE, 1.));
+        let scale = self.height / 2.;
+        let centered_offset = self.width / 2. - (self.baked_text.width() * scale) / 2.;
+
+        let model = Mat4::from_translation(Vec3::new(self.x + centered_offset, self.y + self.height * 0.25, 0.))
+            * Mat4::from_scale(Vec3::new(scale, scale, 1.));
         *projection * model
     }
 
