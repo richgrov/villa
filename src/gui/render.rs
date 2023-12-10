@@ -109,15 +109,15 @@ impl GuiRenderer {
         let gui_button_large = gpu.create_mesh(&[
             GuiTextureVertex {
                 pos: [0., 0.],
-                uv: [0., 65./256.],
+                uv: [0., 66./256.],
             },
             GuiTextureVertex {
                 pos: [1., 0.],
-                uv: [199./256., 65./256.],
+                uv: [200./256., 66./256.],
             },
             GuiTextureVertex {
                 pos: [1., 1.],
-                uv: [199./256., 46./256.],
+                uv: [200./256., 46./256.],
             },
             GuiTextureVertex {
                 pos: [0., 1.],
