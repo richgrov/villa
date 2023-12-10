@@ -35,10 +35,15 @@ impl TitleGui {
     }
 
     pub fn handle_resize(&mut self, gpu: &GpuWrapper, width: f32, height: f32) {
-        self.gui.set_button_pos(self.singleplayer, width / 2., height * 0.8);
-        self.gui.set_button_pos(self.multiplayer, width / 2., height * 0.6);
-        self.gui.set_button_pos(self.options, width / 2., height * 0.4);
-        self.gui.set_button_pos(self.quit, width / 2., height * 0.2);
+        self.gui.update_button_scales(height);
+
+        let singleplayer = self.gui.button(self.singleplayer);
+        let x = width / 2. - singleplayer.width() / 2.;
+
+        singleplayer.set_pos(x, height * 0.5);
+        self.gui.button(self.multiplayer).set_pos(x, height * 0.35);
+        self.gui.button(self.options).set_pos(x, height * 0.2);
+        self.gui.button(self.quit).set_pos(x, height * 0.05);
         self.gui.resize(gpu);
     }
 

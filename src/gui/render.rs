@@ -212,6 +212,8 @@ impl GuiResources {
             .map(|(i, text)| Button {
                 x: 0.,
                 y: 0.,
+                width: 0.,
+                height: 0.,
                 baked_text: self.build_text(&gpu, text, true).unwrap(),
                 text_uniform_offset: self.font_uniform_layout.offset_of(i),
                 button_uniform_offset: self.button_uniform_layout.offset_of(i),
@@ -226,25 +228,26 @@ impl GuiResources {
     }
 }
 
-struct Button {
+pub struct Button {
     x: f32,
     y: f32,
+    width: f32,
+    height: f32,
     baked_text: Mesh,
     text_uniform_offset: wgpu::DynamicOffset,
     button_uniform_offset: wgpu::DynamicOffset,
 }
 
 impl Button {
-    const BACKGROUND_WIDTH: f32 = 800.;
-    const BACKGROUND_HEIGHT: f32 = 80.;
+    const BUTTON_TEXTURE_ASPECT: f32 = 10.;
     const TEXT_SCALE: f32 = 60.0;
 
-    fn build_background_uniform(&self, projection: &Mat4, hovered: bool) -> ButtonBackgroundUniform {
+    fn build_background_uniform(&self, projection: Mat4, hovered: bool) -> ButtonBackgroundUniform {
         let model = Mat4::from_translation(Vec3::new(self.x, self.y, 0.))
-            * Mat4::from_scale(Vec3::new(Self::BACKGROUND_WIDTH, Self::BACKGROUND_HEIGHT, 1.));
+            * Mat4::from_scale(Vec3::new(self.width, self.height, 1.));
 
         ButtonBackgroundUniform {
-            mvp: (*projection * model).to_cols_array(),
+            mvp: (projection * model).to_cols_array(),
             y_offset: if hovered { 40./256. } else { 20./256. },
         }
     }
@@ -253,6 +256,20 @@ impl Button {
         let model = Mat4::from_translation(Vec3::new(self.x, self.y, 0.))
             * Mat4::from_scale(Vec3::new(Self::TEXT_SCALE, Self::TEXT_SCALE, 1.));
         *projection * model
+    }
+
+    fn recalculate_scale(&mut self, display_height: f32) {
+        self.height = display_height / 10.;
+        self.width = self.height * Self::BUTTON_TEXTURE_ASPECT;
+    }
+
+    pub fn set_pos(&mut self, x: f32, y: f32) {
+        self.x = x;
+        self.y = y;
+    }
+
+    pub fn width(&self) -> f32 {
+        self.width
     }
 }
 
@@ -263,10 +280,14 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub fn set_button_pos(&mut self, id: usize, x: f32, y: f32) {
-        let btn = &mut self.buttons[id];
-        btn.x = x;
-        btn.y = y;
+    pub fn button(&mut self, id: usize) -> &mut Button {
+        &mut self.buttons[id]
+    }
+
+    pub fn update_button_scales(&mut self, window_height: f32) {
+        for button in &mut self.buttons {
+            button.recalculate_scale(window_height);
+        }
     }
 
     pub fn resize(&mut self, gpu: &GpuWrapper) {
@@ -282,7 +303,7 @@ impl Gui {
         );
 
         for (i, button) in self.buttons.iter().enumerate() {
-            let background_uniform = button.build_background_uniform(&projection, Some(i) == self.hovered_button_index);
+            let background_uniform = button.build_background_uniform(projection, Some(i) == self.hovered_button_index);
             self.uniform_storage.set_element(0, i, background_uniform);
 
             let text_uniform = button.build_text_mvp(&projection).to_cols_array();
@@ -297,8 +318,8 @@ impl Gui {
 
         let mut hovered_index = None;
         for (i, button) in self.buttons.iter().enumerate() {
-            let inside = mouse_x > button.x && mouse_x < button.x + Button::BACKGROUND_WIDTH
-                && mouse_y > button.y && mouse_y < button.y + Button::BACKGROUND_HEIGHT;
+            let inside = mouse_x > button.x && mouse_x < button.x + button.width
+                && mouse_y > button.y && mouse_y < button.y + button.height;
 
             if inside {
                 hovered_index = Some(i);
