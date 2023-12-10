@@ -5,7 +5,7 @@ use winit::dpi::PhysicalPosition;
 use crate::{gpu::{GpuWrapper, Mesh}, uniforms::{UniformStorage, UniformSpec}};
 
 pub struct GuiSpec {
-    buttons: Vec<(f32, f32, String)>,
+    buttons: Vec<String>,
 }
 
 impl GuiSpec {
@@ -17,7 +17,7 @@ impl GuiSpec {
 
     pub fn button(&mut self, text: &str) -> usize {
         let id = self.buttons.len();
-        self.buttons.push((0., 0., text.to_owned()));
+        self.buttons.push(text.to_owned());
         id
     }
 }
@@ -209,9 +209,9 @@ impl GuiResources {
         let buttons: Vec<_> = gui_spec.buttons
             .iter()
             .enumerate()
-            .map(|(i, (x, y, text))| Button {
-                x: *x,
-                y: *y,
+            .map(|(i, text)| Button {
+                x: 0.,
+                y: 0.,
                 baked_text: self.build_text(&gpu, text, true).unwrap(),
                 text_uniform_offset: self.font_uniform_layout.offset_of(i),
                 button_uniform_offset: self.button_uniform_layout.offset_of(i),
@@ -227,8 +227,8 @@ impl GuiResources {
 }
 
 struct Button {
-    pub x: f32,
-    pub y: f32,
+    x: f32,
+    y: f32,
     baked_text: Mesh,
     text_uniform_offset: wgpu::DynamicOffset,
     button_uniform_offset: wgpu::DynamicOffset,
