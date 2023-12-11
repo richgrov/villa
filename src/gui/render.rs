@@ -306,14 +306,14 @@ impl Gui {
         render_pass.set_bind_group(0, &resources.gui_texture, &[]);
         resources.gui_button_large.bind(render_pass);
         for button in &self.buttons {
-            render_pass.set_bind_group(1, self.uniform_storage.bind_group(0), &[button.text_uniform_offset]);
+            render_pass.set_bind_group(1, self.uniform_storage.bind_group(0), &[button.button_uniform_offset]);
             resources.gui_button_large.draw(render_pass);
         }
 
         render_pass.set_pipeline(&resources.font_pipeline);
         render_pass.set_bind_group(0, &resources.font_texture, &[]);
         for button in &self.buttons {
-            render_pass.set_bind_group(1, self.uniform_storage.bind_group(1), &[button.button_uniform_offset]);
+            render_pass.set_bind_group(1, self.uniform_storage.bind_group(1), &[button.text_uniform_offset]);
             button.baked_text.bind(render_pass);
             button.baked_text.draw(render_pass);
         }
