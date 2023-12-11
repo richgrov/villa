@@ -64,34 +64,10 @@ impl CharacterUv {
 
 impl GuiResources {
     pub fn new(gpu: &GpuWrapper) -> GuiResources {
-        let texture_layout = gpu.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Font Texture"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float {
-                            filterable: true,
-                        },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
-
         let font_uniform_layout = UniformSpec::new::<Mat4>(gpu, "Font Uniform Layout", wgpu::ShaderStages::VERTEX);
         let button_uniform_layout = UniformSpec::new::<ButtonBackgroundUniform>(gpu, "Button Uniform", wgpu::ShaderStages::VERTEX);
 
-        let pipeline = gpu.create_pipeline::<FontVertex>("Font", include_str!("../../res/font.wgsl"), &[&texture_layout, font_uniform_layout.layout()]);
+        let pipeline = gpu.create_pipeline::<FontVertex>("Font", include_str!("../../res/font.wgsl"), &[gpu.generic_texture_layout(), font_uniform_layout.layout()]);
 
         let image = image::load_from_memory(include_bytes!("../../res/default.png")).unwrap();
         if image.width() % 16 != 0 {
@@ -124,15 +100,15 @@ impl GuiResources {
             }
         }
 
-        let texture_bind_group = gpu.create_texture(&image, &texture_layout);
+        let texture_bind_group = gpu.create_texture(&image);
 
         if let Some(index) = font_map.iter().position(|c| *c == ' ') {
             character_uv[index + 32].width = 4. / 256.;
         }
 
-        let gui_texture_pipeline = gpu.create_pipeline::<GuiTextureVertex>("Gui Texture", include_str!("../../res/gui.wgsl"), &[&texture_layout, button_uniform_layout.layout()]);
+        let gui_texture_pipeline = gpu.create_pipeline::<GuiTextureVertex>("Gui Texture", include_str!("../../res/gui.wgsl"), &[gpu.generic_texture_layout(), button_uniform_layout.layout()]);
         let gui_image = image::load_from_memory(include_bytes!("../../res/gui.png")).unwrap();
-        let gui_texture = gpu.create_texture(&gui_image, &texture_layout);
+        let gui_texture = gpu.create_texture(&gui_image);
         let gui_button_large = gpu.create_mesh(&[
             GuiTextureVertex {
                 pos: [0., 0.],

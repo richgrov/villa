@@ -7,6 +7,7 @@ pub struct GpuWrapper {
     surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
     last_surface_size: PhysicalSize<u32>,
+    texture_layout: wgpu::BindGroupLayout,
 }
 
 impl GpuWrapper {
@@ -44,12 +45,37 @@ impl GpuWrapper {
         };
         surface.configure(&device, &config);
 
+        let texture_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Generic Texture"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: true,
+                        },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
+
         GpuWrapper {
             device,
             queue,
             surface,
             surface_config: config,
             last_surface_size: size,
+            texture_layout,
         }
     }
 
@@ -78,6 +104,10 @@ impl GpuWrapper {
 
     pub fn window_size(&self) -> PhysicalSize<u32> {
         self.last_surface_size
+    }
+
+    pub fn generic_texture_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.texture_layout
     }
 
     pub fn create_pipeline<T: VertexAttribues>(
@@ -158,7 +188,7 @@ impl GpuWrapper {
         }
     }
 
-    pub fn create_texture(&self, image: &image::DynamicImage, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
+    pub fn create_texture(&self, image: &image::DynamicImage) -> wgpu::BindGroup {
         let dimensions = wgpu::Extent3d {
             width: image.width(),
             height: image.height(),
@@ -205,7 +235,7 @@ impl GpuWrapper {
         });
 
         self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout,
+            layout: &self.texture_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -268,4 +298,3 @@ impl IndexType for u32 {
         wgpu::IndexFormat::Uint32
     }
 }
-
