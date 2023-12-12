@@ -3,7 +3,7 @@ use std::rc::Rc;
 use wgpu::RenderPass;
 use winit::dpi::PhysicalPosition;
 
-use crate::gpu::GpuWrapper;
+use crate::{gpu::GpuWrapper, scene::Scene};
 
 use super::{GuiResources, GuiSpec, Gui, render::SpriteVertex};
 
@@ -109,8 +109,10 @@ impl TitleGui {
             logo,
         }
     }
+}
 
-    pub fn handle_resize(&mut self, gpu: &GpuWrapper, width: f32, height: f32) {
+impl Scene for TitleGui {
+    fn handle_resize(&mut self, gpu: &GpuWrapper, width: f32, height: f32) {
         let background = self.gui.image(self.background);
         if width / height > self.background_aspect {
             background.width = width;
@@ -139,11 +141,11 @@ impl TitleGui {
         self.gui.resize(gpu);
     }
 
-    pub fn handle_mouse_move(&mut self, gpu: &GpuWrapper, position: PhysicalPosition<f32>) {
+    fn handle_mouse_move(&mut self, gpu: &GpuWrapper, position: PhysicalPosition<f32>) {
         self.gui.mouse_moved(gpu, position);
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
+    fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
         self.gui.render(render_pass, &self.gui_resources);
     }
 }
