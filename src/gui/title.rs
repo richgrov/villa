@@ -39,7 +39,6 @@ const LOGO_VERTICES: [SpriteVertex; 8] = [
         pos: [LOGO_SPLIT, 0.],
         uv: [155./256., 44./256.],
     },
-
     SpriteVertex {
         pos: [LOGO_SPLIT, 1.],
         uv: [155./256., 0.],
