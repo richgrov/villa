@@ -7,6 +7,27 @@ use crate::gpu::GpuWrapper;
 
 use super::{GuiResources, GuiSpec, Gui, render::SpriteVertex};
 
+const BACKGROUND_VERTICES: [SpriteVertex; 4] = [
+    SpriteVertex {
+        pos: [0., 0.],
+        uv: [0., 1.],
+    },
+    SpriteVertex {
+        pos: [1., 0.],
+        uv: [1., 1.],
+    },
+
+    SpriteVertex {
+        pos: [1., 1.],
+        uv: [1., 0.],
+    },
+    SpriteVertex {
+        pos: [0., 1.],
+        uv: [0., 0.],
+    },
+];
+const BACKGROUND_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
+
 const LOGO_ASPECT: f32 = (155.+119.) / 44.;
 const LOGO_SPLIT: f32 = 155. / (155.+119.);
 const LOGO_VERTICES: [SpriteVertex; 8] = [
@@ -54,6 +75,8 @@ pub struct TitleGui {
     multiplayer: usize,
     options: usize,
     quit: usize,
+    background: usize,
+    background_aspect: f32,
     logo: usize,
 }
 
@@ -64,6 +87,11 @@ impl TitleGui {
         let multiplayer = gui.button("Multiplayer");
         let options = gui.button("Options");
         let quit = gui.button("Quit");
+
+        let background_image = image::load_from_memory(include_bytes!("../../res/background.png")).unwrap();
+        let background_texture = gpu.create_texture(&background_image);
+        let background_mesh = gpu.create_mesh(&BACKGROUND_VERTICES, &BACKGROUND_INDICES);
+        let background = gui.image(background_texture, background_mesh);
 
         let logo_image = image::load_from_memory(include_bytes!("../../res/mclogo.png")).unwrap();
         let logo_texture = gpu.create_texture(&logo_image);
@@ -77,11 +105,24 @@ impl TitleGui {
             multiplayer,
             options,
             quit,
+            background,
+            background_aspect: background_image.width() as f32 / background_image.height() as f32,
             logo,
         }
     }
 
     pub fn handle_resize(&mut self, gpu: &GpuWrapper, width: f32, height: f32) {
+        let background = self.gui.image(self.background);
+        if width / height > self.background_aspect {
+            background.width = width;
+            background.height = width / self.background_aspect;
+        } else {
+            background.width = height * self.background_aspect;
+            background.height = height;
+            background.set_pos(width / 2. - background.width / 2., height / 2. - background.height / 2.);
+        }
+        background.set_pos(width / 2. - background.width / 2., height / 2. - background.height / 2.);
+
         let logo = self.gui.image(self.logo);
         logo.height = height * 0.15;
         logo.width = logo.height * LOGO_ASPECT;
