@@ -133,9 +133,9 @@ impl TitleGui {
         let x = width / 2. - singleplayer.width() / 2.;
 
         singleplayer.set_pos(x, height * 0.4);
-        self.gui.button(self.multiplayer).set_pos(x, height * 0.28);
-        self.gui.button(self.options).set_pos(x, height * 0.16);
-        self.gui.button(self.quit).set_pos(x, height * 0.04);
+        self.gui.button(self.multiplayer).set_pos(x, height * 0.3);
+        self.gui.button(self.options).set_pos(x, height * 0.2);
+        self.gui.button(self.quit).set_pos(x, height * 0.1);
         self.gui.resize(gpu);
     }
 

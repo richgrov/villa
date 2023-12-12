@@ -255,7 +255,7 @@ impl Button {
     }
 
     fn recalculate_scale(&mut self, display_height: f32) {
-        self.height = display_height / 10.;
+        self.height = display_height * 0.08;
         self.width = self.height * Self::BUTTON_TEXTURE_ASPECT;
     }
 
