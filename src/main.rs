@@ -66,7 +66,7 @@ impl App {
         let next_state = self.current_scene.handle_click(&self.gpu, state, button);
         match next_state {
             NextState::Continue => {},
-            NextState::ChangeScene(scene) => self.current_scene = scene,
+            NextState::ChangeScene(scene) => self.set_scene(scene),
             NextState::Exit => return true,
         }
 
@@ -96,6 +96,15 @@ impl App {
         frame.present();
 
         Ok(())
+    }
+
+    fn set_scene(&mut self, scene: Box<dyn Scene>) {
+        self.current_scene = scene;
+        self.current_scene.handle_resize(
+            &self.gpu,
+            self.window_size.width as f32,
+            self.window_size.height as f32,
+        );
     }
 }
 
