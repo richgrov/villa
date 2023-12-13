@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec3};
 use image::GenericImageView;
-use winit::dpi::PhysicalPosition;
+use winit::{dpi::PhysicalPosition, event::ElementState};
 
 use crate::{gpu::{GpuWrapper, Mesh}, uniforms::{UniformStorage, UniformSpec}};
 
@@ -190,6 +190,7 @@ impl GuiResources {
             buttons,
             images,
             hovered_button_index: None,
+            clicking_button_index: None,
             uniform_storage,
         }
     }
@@ -259,6 +260,11 @@ impl Button {
         self.width = self.height * Self::BUTTON_TEXTURE_ASPECT;
     }
 
+    fn contains_point(&self, x: f32, y: f32) -> bool {
+        x > self.x && x < self.x + self.width
+            && y > self.y && y < self.y + self.height
+    }
+
     pub fn set_pos(&mut self, x: f32, y: f32) {
         self.x = x;
         self.y = y;
@@ -273,6 +279,7 @@ pub struct Gui {
     images: Vec<Image>,
     buttons: Vec<Button>,
     hovered_button_index: Option<usize>,
+    clicking_button_index: Option<usize>,
     uniform_storage: UniformStorage,
 }
 
@@ -324,10 +331,7 @@ impl Gui {
 
         let mut hovered_index = None;
         for (i, button) in self.buttons.iter().enumerate() {
-            let inside = mouse_x > button.x && mouse_x < button.x + button.width
-                && mouse_y > button.y && mouse_y < button.y + button.height;
-
-            if inside {
+            if button.contains_point(mouse_x, mouse_y) {
                 hovered_index = Some(i);
                 break
             }
@@ -337,6 +341,30 @@ impl Gui {
             self.hovered_button_index = hovered_index;
             self.resize(gpu);
         }
+    }
+
+    pub fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, position: PhysicalPosition<f32>) -> Option<usize> {
+        let mut clicked_index = None;
+        for (i, button) in self.buttons.iter().enumerate() {
+            if button.contains_point(position.x, position.y) {
+                clicked_index = Some(i);
+                break
+            }
+        }
+        
+        match state {
+            ElementState::Pressed => {
+                self.clicking_button_index = clicked_index;
+            },
+            ElementState::Released => {
+                if self.clicking_button_index == clicked_index {
+                    self.clicking_button_index = None;
+                    return clicked_index
+                }
+            },
+        }
+
+        None
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, resources: &'a GuiResources) {

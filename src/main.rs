@@ -2,13 +2,14 @@ mod gui;
 mod gpu;
 mod scene;
 mod uniforms;
+mod world;
 
 use std::rc::Rc;
 
 use gpu::GpuWrapper;
 use gui::TitleGui;
-use scene::Scene;
-use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}};
+use scene::{Scene, NextState};
+use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}, event::{ElementState, MouseButton}};
 
 pub struct App {
     window: Window,
@@ -59,6 +60,17 @@ impl App {
             self.window_size.height as f32 - position.y as f32
         );
         self.current_scene.handle_mouse_move(&self.gpu, converted);
+    }
+
+    fn handle_click(&mut self, state: ElementState, button: MouseButton) -> bool {
+        let next_state = self.current_scene.handle_click(&self.gpu, state, button);
+        match next_state {
+            NextState::Continue => {},
+            NextState::ChangeScene(scene) => self.current_scene = scene,
+            NextState::Exit => return true,
+        }
+
+        false
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -123,6 +135,12 @@ fn main() {
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     WindowEvent::CursorMoved { position, .. } => app.mouse_moved(position),
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        let should_exit = app.handle_click(state, button);
+                        if should_exit {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                    },
                     _ => {},
                 },
                 Event::MainEventsCleared => {

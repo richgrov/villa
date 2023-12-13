@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
 use wgpu::RenderPass;
-use winit::dpi::PhysicalPosition;
+use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton}};
 
-use crate::{gpu::GpuWrapper, scene::Scene};
+use crate::{gpu::GpuWrapper, scene::{Scene, NextState}};
 
 use super::{GuiResources, GuiSpec, Gui, render::SpriteVertex};
 
@@ -70,6 +70,7 @@ const LOGO_INDICES: [u16; 12] = [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
 pub struct TitleGui {
     pub gui: Gui,
     gui_resources: Rc<GuiResources>,
+    last_mouse_pos: PhysicalPosition<f32>,
     singleplayer: usize,
     multiplayer: usize,
     options: usize,
@@ -100,6 +101,7 @@ impl TitleGui {
         TitleGui {
             gui: gui_renderer.build_gui(gpu, gui),
             gui_resources: gui_renderer,
+            last_mouse_pos: PhysicalPosition { x: 0., y: 0. },
             singleplayer,
             multiplayer,
             options,
@@ -142,7 +144,22 @@ impl Scene for TitleGui {
     }
 
     fn handle_mouse_move(&mut self, gpu: &GpuWrapper, position: PhysicalPosition<f32>) {
+        self.last_mouse_pos = position;
         self.gui.mouse_moved(gpu, position);
+    }
+
+    fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, button: MouseButton) -> NextState {
+        if button != MouseButton::Left {
+            return NextState::Continue
+        }
+
+        if let Some(button_id) = self.gui.handle_click(gpu, state, self.last_mouse_pos) {
+            if button_id == self.quit {
+                return NextState::Exit
+            }
+        }
+
+        NextState::Continue
     }
 
     fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
