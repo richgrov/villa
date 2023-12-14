@@ -9,7 +9,7 @@ use std::rc::Rc;
 use gpu::GpuWrapper;
 use gui::TitleGui;
 use scene::{Scene, NextState};
-use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}, event::{ElementState, MouseButton}};
+use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}, event::{ElementState, MouseButton, KeyboardInput}};
 
 pub struct App {
     window: Window,
@@ -46,6 +46,7 @@ impl App {
     }
 
     fn update(&mut self) {
+        self.current_scene.update(&self.gpu);
     }
 
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -71,6 +72,10 @@ impl App {
         }
 
         false
+    }
+
+    fn handle_key_input(&mut self, key: KeyboardInput) {
+        self.current_scene.handle_key_input(&self.gpu, key);
     }
 
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -150,6 +155,7 @@ fn main() {
                             *control_flow = ControlFlow::Exit;
                         }
                     },
+                    WindowEvent::KeyboardInput { input, .. } => app.handle_key_input(input),
                     _ => {},
                 },
                 Event::MainEventsCleared => {

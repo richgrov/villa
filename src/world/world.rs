@@ -2,13 +2,21 @@ use std::rc::Rc;
 
 use glam::{Mat4, Vec3};
 use wgpu::RenderPipeline;
-use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton}};
+use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton, KeyboardInput}};
 
 use crate::{scene::{Scene, NextState}, gpu::GpuWrapper, uniforms::{UniformSpec, UniformStorage}};
 
 use super::{Chunk, chunk::ChunkVertex};
 
-const MOUSE_SENSITIVITY: f32 = 0.3;
+const MOUSE_SENSITIVITY: f32 = 0.01;
+const MOVE_SPEED: f32 = 0.1;
+
+const KEY_W: u32 = 17;
+const KEY_A: u32 = 30;
+const KEY_S: u32 = 31;
+const KEY_D: u32 = 32;
+const KEY_SHIFT: u32 = 42;
+const KEY_SPACE: u32 = 57;
 
 pub struct WorldResources {
     chunk_uniform_layout: UniformSpec,
@@ -34,8 +42,15 @@ pub struct World {
     last_cursor_position: Option<PhysicalPosition<f32>>,
     projection: Mat4,
 
+    forward_input: f32,
+    left_input: f32,
+    up_input: f32,
+
     camera_pitch: f32,
     camera_yaw: f32,
+    camera_x: f32,
+    camera_y: f32,
+    camera_z: f32,
 }
 
 impl World {
@@ -51,9 +66,26 @@ impl World {
             last_cursor_position: None,
             projection: Mat4::ZERO,
 
+            forward_input: 0.,
+            left_input: 0.,
+            up_input: 0.,
+
             camera_pitch: 0.,
             camera_yaw: 0.,
+            camera_x: 0.,
+            camera_y: 0.,
+            camera_z: -1.,
         }
+    }
+
+    fn update_position(&mut self, gpu: &GpuWrapper) {
+        let view = Mat4::from_rotation_x(self.camera_pitch)
+            * Mat4::from_rotation_y(self.camera_yaw)
+            * Mat4::from_translation(Vec3::new(-self.camera_x, -self.camera_y, -self.camera_z));
+        let model = Mat4::from_translation(Vec3::new(0., 0., 0.));
+
+        self.chunk_uniforms.set_element(0, 0, (self.projection * view * model).to_cols_array());
+        self.chunk_uniforms.update(gpu);
     }
 }
 
@@ -66,21 +98,43 @@ impl Scene for World {
         if let Some(last_pos) = self.last_cursor_position {
             self.camera_pitch -= (last_pos.y - position.y) * MOUSE_SENSITIVITY;
             self.camera_yaw += (last_pos.x - position.x) * MOUSE_SENSITIVITY;
-
-            let view = Mat4::from_rotation_x(self.camera_pitch.to_radians())
-                * Mat4::from_rotation_y(self.camera_yaw.to_radians())
-                * Mat4::from_translation(Vec3::new(0., 0., 1.));
-            let model = Mat4::from_translation(Vec3::new(0., 0., 0.));
-
-            self.chunk_uniforms.set_element(0, 0, (self.projection * view * model).to_cols_array());
-            self.chunk_uniforms.update(gpu);
+            self.update_position(gpu);
         }
         self.last_cursor_position = Some(position);
     }
 
     fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, button: MouseButton) -> NextState {
-        self.chunk.build_mesh(gpu);
+        self.chunk.rebuild_mesh(gpu);
         NextState::Continue
+    }
+
+    fn handle_key_input(&mut self, gpu: &GpuWrapper, key: KeyboardInput) {
+        let factor = match key.state {
+            ElementState::Pressed => 1.,
+            ElementState::Released => 0.,
+        };
+
+        match key.scancode {
+            KEY_W => self.forward_input = factor,
+            KEY_S => self.forward_input = -factor,
+            KEY_A => self.left_input = factor,
+            KEY_D => self.left_input = -factor,
+            KEY_SHIFT => self.up_input = -factor,
+            KEY_SPACE => self.up_input = factor,
+            _ => return,
+        }
+    }
+
+    fn update(&mut self, gpu: &GpuWrapper) {
+        self.camera_x -= self.camera_yaw.sin() * self.forward_input * MOVE_SPEED;
+        self.camera_z += self.camera_yaw.cos() * self.forward_input * MOVE_SPEED;
+
+        self.camera_x -= self.camera_yaw.cos() * self.left_input * MOVE_SPEED;
+        self.camera_z -= self.camera_yaw.sin() * self.left_input * MOVE_SPEED;
+
+        self.camera_y += 0.1 * self.up_input;
+
+        self.update_position(gpu);
     }
 
     fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {

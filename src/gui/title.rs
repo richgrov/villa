@@ -165,6 +165,12 @@ impl Scene for TitleGui {
         NextState::Continue
     }
 
+    fn handle_key_input(&mut self, gpu: &GpuWrapper, key: winit::event::KeyboardInput) {
+    }
+
+    fn update(&mut self, gpu: &GpuWrapper) {
+    }
+
     fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
         self.gui.render(render_pass, &self.gui_resources);
     }
