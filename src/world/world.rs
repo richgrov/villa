@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use glam::{Mat4, Vec3};
-use wgpu::RenderPipeline;
+use wgpu::{RenderPipeline, BindGroup};
 use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton, KeyboardInput}};
 
 use crate::{scene::{Scene, NextState}, gpu::GpuWrapper, uniforms::{UniformSpec, UniformStorage}};
@@ -21,16 +21,26 @@ const KEY_SPACE: u32 = 57;
 pub struct WorldResources {
     chunk_uniform_layout: UniformSpec,
     pipeline: RenderPipeline,
+    terrain_texture: BindGroup,
 }
 
 impl WorldResources {
     pub fn new(gpu: &GpuWrapper) -> WorldResources {
+        let terrain_image = image::load_from_memory(include_bytes!("../../res/terrain.png")).unwrap();
+        let terrain_texture = gpu.create_texture(&terrain_image);
+
         let chunk_uniform_layout = UniformSpec::new::<Mat4>(gpu, "Chunk Uniform Layout", wgpu::ShaderStages::VERTEX);
-        let pipeline = gpu.create_pipeline::<ChunkVertex>("Chunk Pipeline", include_str!("../../res/chunk.wgsl"), &[chunk_uniform_layout.layout()]);
+        let pipeline = gpu.create_pipeline::<ChunkVertex>(
+            "Chunk Pipeline",
+            include_str!("../../res/chunk.wgsl"),
+            &[gpu.generic_texture_layout(), chunk_uniform_layout.layout()],
+            true,
+        );
 
         WorldResources {
             chunk_uniform_layout,
             pipeline,
+            terrain_texture,
         }
     }
 }
@@ -91,7 +101,7 @@ impl World {
 
 impl Scene for World {
     fn handle_resize(&mut self, gpu: &crate::gpu::GpuWrapper, width: f32, height: f32) {
-        self.projection = Mat4::perspective_lh((70f32).to_radians(), width / height, 0., 1000.);
+        self.projection = Mat4::perspective_lh((70f32).to_radians(), width / height, 0.01, 1000.);
     }
 
     fn handle_mouse_move(&mut self, gpu: &crate::gpu::GpuWrapper, position: PhysicalPosition<f32>) {
@@ -137,9 +147,10 @@ impl Scene for World {
         self.update_position(gpu);
     }
 
-    fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+    fn draw_3d<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.resources.pipeline);
-        render_pass.set_bind_group(0, self.chunk_uniforms.bind_group(0), &[0]);
+        render_pass.set_bind_group(0, &self.resources.terrain_texture, &[]);
+        render_pass.set_bind_group(1, self.chunk_uniforms.bind_group(0), &[0]);
         if let Some(mesh) = self.chunk.mesh() {
             mesh.bind(render_pass);
             mesh.draw(render_pass);

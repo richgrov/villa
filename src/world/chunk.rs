@@ -1,7 +1,9 @@
 use crate::gpu::{Mesh, GpuWrapper};
 
+use super::block::{Block, BlockModel, SolidBlockUv};
+
 pub struct Chunk {
-    blocks: [bool; 16*16*128],
+    blocks: [Block; 16*16*128],
     mesh: Option<Mesh>,
     x: i32,
     z: i32,
@@ -10,183 +12,216 @@ pub struct Chunk {
 impl Chunk {
     pub fn new(x: i32, z: i32) -> Chunk {
         Chunk {
-            blocks: [false; 16*16*128],
+            blocks: [Block::Air; 16*16*128],
             mesh: None,
             x,
             z,
         }
     }
 
-    pub fn block(&self, x: usize, y: usize, z: usize) -> bool {
+    pub fn block(&self, x: usize, y: usize, z: usize) -> Block {
         self.blocks[(y * 16 + z) * 16 + x]
     }
 
-    pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: bool) {
+    pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: Block) {
         self.blocks[(y * 16 + z) * 16 + x] = block;
     }
 
     pub fn rebuild_mesh(&mut self, gpu: &GpuWrapper) {
+        for x in 0..16 {
+            for y in 0..128 {
+                for z in 0..16 {
+                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
+                        self.set_block(x, y, z, Block::Stone);
+                    }
+                }
+            }
+        }
+
         let mut vertices = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
 
         for x in 0..16 {
             for y in 0..128 {
                 for z in 0..16 {
-                    if !self.block(x, y, z) {
+                    let block = self.block(x, y, z);
+                    if let Block::Air = block {
                         continue
                     }
 
-                    let xf = x as f32;
-                    let yf = y as f32;
-                    let zf = z as f32;
-
-                    if x == 0 || !self.block(x-1, y, z) {
-                        let v = vertices.len() as u32;
-                        vertices.extend_from_slice(&[
-                            ChunkVertex {
-                                pos: [xf, yf, zf],
-                                uv: [0., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf + 1., zf],
-                                uv: [1., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf + 1., zf + 1.],
-                                uv: [1., 0.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf, zf + 1.],
-                                uv: [0., 0.],
-                            },
-                        ]);
-
-                        indices.extend_from_slice(&[v, v+1, v+2, v+2, v+3, v]);
-                    }
-
-                    if x == 15 || !self.block(x+1, y, z) {
-                        let v = vertices.len() as u32;
-                        vertices.extend_from_slice(&[
-                            ChunkVertex {
-                                pos: [xf + 1., yf, zf],
-                                uv: [0., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf, zf + 1.],
-                                uv: [1., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf + 1., zf + 1.],
-                                uv: [1., 0.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf + 1., zf],
-                                uv: [0., 0.],
-                            },
-                        ]);
-
-                        indices.extend_from_slice(&[v, v+1, v+2, v+2, v+3, v]);
-                    }
-
-                    if y == 0 || !self.block(x, y-1, z) {
-                        let v = vertices.len() as u32;
-                        vertices.extend_from_slice(&[
-                            ChunkVertex {
-                                pos: [xf, yf, zf],
-                                uv: [0., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf, zf + 1.],
-                                uv: [1., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf, zf + 1.],
-                                uv: [1., 0.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf, zf],
-                                uv: [0., 0.],
-                            },
-                        ]);
-
-                        indices.extend_from_slice(&[v, v+1, v+2, v+2, v+3, v]);
-                    }
-
-                    if y == 127 || !self.block(x, y+1, z) {
-                        let v = vertices.len() as u32;
-                        vertices.extend_from_slice(&[
-                            ChunkVertex {
-                                pos: [xf, yf + 1., zf],
-                                uv: [0., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf + 1., zf],
-                                uv: [1., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf + 1., zf + 1.],
-                                uv: [1., 0.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf + 1., zf + 1.],
-                                uv: [0., 0.],
-                            },
-                        ]);
-
-                        indices.extend_from_slice(&[v, v+1, v+2, v+2, v+3, v]);
-                    }
-
-                    if z == 0 || !self.block(x, y, z-1) {
-                        let v = vertices.len() as u32;
-                        vertices.extend_from_slice(&[
-                            ChunkVertex {
-                                pos: [xf, yf, zf],
-                                uv: [0., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf, zf],
-                                uv: [1., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf + 1., zf],
-                                uv: [1., 0.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf + 1., zf],
-                                uv: [0., 0.],
-                            },
-                        ]);
-
-                        indices.extend_from_slice(&[v, v+1, v+2, v+2, v+3, v]);
-                    }
-
-                    if z == 15 || !self.block(x, y, z+1) {
-                        let v = vertices.len() as u32;
-                        vertices.extend_from_slice(&[
-                            ChunkVertex {
-                                pos: [xf, yf, zf + 1.],
-                                uv: [0., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf, yf + 1., zf + 1.],
-                                uv: [1., 1.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf + 1., zf + 1.],
-                                uv: [1., 0.],
-                            },
-                            ChunkVertex {
-                                pos: [xf + 1., yf, zf + 1.],
-                                uv: [0., 0.],
-                            },
-                        ]);
-
-                        indices.extend_from_slice(&[v, v+1, v+2, v+2, v+3, v]);
+                    match block.model() {
+                        BlockModel::Solid(solid) => self.build_full_block_model(
+                            x, y, z, &mut vertices, &mut indices, &solid,
+                        ),
                     }
                 }
             }
         }
         let _ = self.mesh.insert(gpu.create_mesh(&vertices, &indices));
+    }
+
+    pub fn build_full_block_model(
+        &self,
+        x: usize,
+        y: usize,
+        z: usize,
+        vertices: &mut Vec<ChunkVertex>,
+        indices: &mut Vec<u32>,
+        solid: &SolidBlockUv,
+    ) {
+        let xf = x as f32;
+        let yf = y as f32;
+        let zf = z as f32;
+
+        if x == 0 || self.block(x-1, y, z) == Block::Air {
+            let (u, v, ue, ve) = solid.neg_x;
+            let n = vertices.len() as u32;
+            vertices.extend_from_slice(&[
+                ChunkVertex {
+                    pos: [xf, yf, zf],
+                    uv: [ue, ve],
+                },
+                ChunkVertex {
+                    pos: [xf, yf + 1., zf],
+                    uv: [ue, v],
+                },
+                ChunkVertex {
+                    pos: [xf, yf + 1., zf + 1.],
+                    uv: [u, v],
+                },
+                ChunkVertex {
+                    pos: [xf, yf, zf + 1.],
+                    uv: [u, ve],
+                },
+            ]);
+
+            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+        }
+
+        if x == 15 || self.block(x+1, y, z) == Block::Air {
+            let (u, v, ue, ve) = solid.pos_x;
+            let n = vertices.len() as u32;
+            vertices.extend_from_slice(&[
+                ChunkVertex {
+                    pos: [xf + 1., yf, zf],
+                    uv: [u, ve],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf, zf + 1.],
+                    uv: [ue, ve],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf + 1., zf + 1.],
+                    uv: [ue, v],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf + 1., zf],
+                    uv: [u, v],
+                },
+            ]);
+
+            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+        }
+
+        if y == 0 || self.block(x, y-1, z) == Block::Air {
+            let (u, v, ue, ve) = solid.neg_y;
+            let n = vertices.len() as u32;
+            vertices.extend_from_slice(&[
+                ChunkVertex {
+                    pos: [xf, yf, zf],
+                    uv: [u, v],
+                },
+                ChunkVertex {
+                    pos: [xf, yf, zf + 1.],
+                    uv: [u, ve],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf, zf + 1.],
+                    uv: [ue, ve],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf, zf],
+                    uv: [ue, v],
+                },
+            ]);
+
+            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+        }
+
+        if y == 127 || self.block(x, y+1, z) == Block::Air {
+            let (u, v, ue, ve) = solid.pos_y;
+            let n = vertices.len() as u32;
+            vertices.extend_from_slice(&[
+                ChunkVertex {
+                    pos: [xf, yf + 1., zf],
+                    uv: [u, v],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf + 1., zf],
+                    uv: [ue, v],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf + 1., zf + 1.],
+                    uv: [ue, ve],
+                },
+                ChunkVertex {
+                    pos: [xf, yf + 1., zf + 1.],
+                    uv: [u, ve],
+                },
+            ]);
+
+            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+        }
+
+        if z == 0 || self.block(x, y, z-1) == Block::Air {
+            let (u, v, ue, ve) = solid.neg_z;
+            let n = vertices.len() as u32;
+            vertices.extend_from_slice(&[
+                ChunkVertex {
+                    pos: [xf, yf, zf],
+                    uv: [u, ve],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf, zf],
+                    uv: [ue, ve],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf + 1., zf],
+                    uv: [ue, v],
+                },
+                ChunkVertex {
+                    pos: [xf, yf + 1., zf],
+                    uv: [u, v],
+                },
+            ]);
+
+            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+        }
+
+        if z == 15 || self.block(x, y, z+1) == Block::Air {
+            let (u, v, ue, ve) = solid.pos_z;
+            let n = vertices.len() as u32;
+            vertices.extend_from_slice(&[
+                ChunkVertex {
+                    pos: [xf, yf, zf + 1.],
+                    uv: [ue, ve],
+                },
+                ChunkVertex {
+                    pos: [xf, yf + 1., zf + 1.],
+                    uv: [ue, v],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf + 1., zf + 1.],
+                    uv: [u, v],
+                },
+                ChunkVertex {
+                    pos: [xf + 1., yf, zf + 1.],
+                    uv: [u, ve],
+                },
+            ]);
+
+            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+        }
     }
 
     pub fn mesh(&self) -> Option<&Mesh> {

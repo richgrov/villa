@@ -8,7 +8,10 @@ pub trait Scene {
     fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, button: MouseButton) -> NextState;
     fn handle_key_input(&mut self, gpu: &GpuWrapper, key: KeyboardInput);
     fn update(&mut self, gpu: &GpuWrapper);
-    fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>);
+    fn draw_ui<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+    }
+    fn draw_3d<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+    }
 }
 
 pub enum NextState {

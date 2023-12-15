@@ -171,7 +171,7 @@ impl Scene for TitleGui {
     fn update(&mut self, gpu: &GpuWrapper) {
     }
 
-    fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
+    fn draw_ui<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
         self.gui.render(render_pass, &self.gui_resources);
     }
 }
