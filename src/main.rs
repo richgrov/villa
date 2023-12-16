@@ -9,12 +9,15 @@ use std::rc::Rc;
 use gpu::GpuWrapper;
 use gui::TitleGui;
 use scene::{Scene, NextState};
-use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}, event::{ElementState, MouseButton}};
+use wgpu::StoreOp;
+use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}, event::{ElementState, MouseButton, KeyboardInput}};
 
 pub struct App {
     window: Window,
     window_size: PhysicalSize<u32>,
     gpu: gpu::GpuWrapper,
+    depth_texture: wgpu::Texture,
+    depth_texture_view: wgpu::TextureView,
 
     current_scene: Box<dyn Scene>,
 }
@@ -35,22 +38,30 @@ impl App {
         let mut title = TitleGui::new(&gpu, gui_resources.clone());
 
         let window_size = window.inner_size();
+        let (depth_texture, depth_texture_view) = gpu.create_depth_texture(window_size.width, window_size.height);
         title.handle_resize(&gpu, window_size.width as f32, window_size.height as f32);
 
         App {
             window,
             window_size,
             gpu,
+            depth_texture,
+            depth_texture_view,
+
             current_scene: Box::new(title),
         }
     }
 
     fn update(&mut self) {
+        self.current_scene.update(&self.gpu);
     }
 
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
         self.window_size = new_size;
         self.gpu.handle_resize(new_size);
+        let (depth_texture, depth_texture_view) = self.gpu.create_depth_texture(new_size.width, new_size.height);
+        self.depth_texture = depth_texture;
+        self.depth_texture_view = depth_texture_view;
         self.current_scene.handle_resize(&self.gpu, new_size.width as f32, new_size.height as f32);
     }
 
@@ -66,36 +77,74 @@ impl App {
         let next_state = self.current_scene.handle_click(&self.gpu, state, button);
         match next_state {
             NextState::Continue => {},
-            NextState::ChangeScene(scene) => self.current_scene = scene,
+            NextState::ChangeScene(scene) => self.set_scene(scene),
             NextState::Exit => return true,
         }
 
         false
     }
 
+    fn handle_key_input(&mut self, key: KeyboardInput) {
+        self.current_scene.handle_key_input(&self.gpu, key);
+    }
+
     fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
         let (frame, view, mut encoder) = self.gpu.begin_draw()?;
 
         {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut d3_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
-                        store: true,
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+            self.current_scene.draw_3d(&mut d3_pass);
+        }
+        {
+            let mut ui_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
             });
-
-            self.current_scene.draw(&mut pass);
+            self.current_scene.draw_ui(&mut ui_pass);
         }
         self.gpu.queue().submit(std::iter::once(encoder.finish()));
         frame.present();
 
         Ok(())
+    }
+
+    fn set_scene(&mut self, scene: Box<dyn Scene>) {
+        self.current_scene = scene;
+        self.current_scene.handle_resize(
+            &self.gpu,
+            self.window_size.width as f32,
+            self.window_size.height as f32,
+        );
     }
 }
 
@@ -141,6 +190,7 @@ fn main() {
                             *control_flow = ControlFlow::Exit;
                         }
                     },
+                    WindowEvent::KeyboardInput { input, .. } => app.handle_key_input(input),
                     _ => {},
                 },
                 Event::MainEventsCleared => {

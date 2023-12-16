@@ -1,5 +1,7 @@
-use wgpu::{util::DeviceExt, BufferUsages};
+use wgpu::{util::DeviceExt, BufferUsages, DepthStencilState, StencilState, DepthBiasState};
 use winit::{window::Window, dpi::PhysicalSize};
+
+pub const DEPTH_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub struct GpuWrapper {
     device: wgpu::Device,
@@ -39,7 +41,7 @@ impl GpuWrapper {
             format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate,
             alpha_mode: capabilities.alpha_modes[0],
             view_formats: vec![],
         };
@@ -115,6 +117,7 @@ impl GpuWrapper {
         name: &str,
         src: &str,
         bind_group_layouts: &[&wgpu::BindGroupLayout],
+        depth: bool,
     ) -> wgpu::RenderPipeline {
         let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&format!("{} shader", name)),
@@ -157,7 +160,15 @@ impl GpuWrapper {
                 unclipped_depth: false,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: if depth {
+                Some(DepthStencilState {
+                    format: DEPTH_TEXTURE_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                })
+            } else { None },
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -196,13 +207,13 @@ impl GpuWrapper {
         };
 
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
             size: dimensions,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: None,
             view_formats: &[],
         });
 
@@ -248,6 +259,28 @@ impl GpuWrapper {
             ],
             label: None,
         })
+    }
+
+    pub fn create_depth_texture(&self, width: u32, height: u32) -> (wgpu::Texture, wgpu::TextureView) {
+        let dimensions = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Texture"),
+            size: dimensions,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: DEPTH_TEXTURE_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        (texture, texture_view)
     }
 
     pub fn begin_draw(&self) -> Result<(wgpu::SurfaceTexture, wgpu::TextureView, wgpu::CommandEncoder), wgpu::SurfaceError> {

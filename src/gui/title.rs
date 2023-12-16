@@ -3,7 +3,7 @@ use std::rc::Rc;
 use wgpu::RenderPass;
 use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton}};
 
-use crate::{gpu::GpuWrapper, scene::{Scene, NextState}};
+use crate::{gpu::GpuWrapper, scene::{Scene, NextState}, world::{World, WorldResources}};
 
 use super::{GuiResources, GuiSpec, Gui, render::SpriteVertex};
 
@@ -154,7 +154,10 @@ impl Scene for TitleGui {
         }
 
         if let Some(button_id) = self.gui.handle_click(gpu, state, self.last_mouse_pos) {
-            if button_id == self.quit {
+            if button_id == self.singleplayer {
+                let resources = WorldResources::new(gpu);
+                return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources))))
+            } else if button_id == self.quit {
                 return NextState::Exit
             }
         }
@@ -162,7 +165,13 @@ impl Scene for TitleGui {
         NextState::Continue
     }
 
-    fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
+    fn handle_key_input(&mut self, gpu: &GpuWrapper, key: winit::event::KeyboardInput) {
+    }
+
+    fn update(&mut self, gpu: &GpuWrapper) {
+    }
+
+    fn draw_ui<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
         self.gui.render(render_pass, &self.gui_resources);
     }
 }

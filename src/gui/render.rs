@@ -75,7 +75,12 @@ impl GuiResources {
         let font_uniform_layout = UniformSpec::new::<Mat4>(gpu, "Font Uniform Layout", wgpu::ShaderStages::VERTEX);
         let sprite_uniform_layout = UniformSpec::new::<SpriteUniform>(gpu, "Sprite Uniform Layout", wgpu::ShaderStages::VERTEX);
 
-        let pipeline = gpu.create_pipeline::<FontVertex>("Font", include_str!("../../res/font.wgsl"), &[gpu.generic_texture_layout(), font_uniform_layout.layout()]);
+        let pipeline = gpu.create_pipeline::<FontVertex>(
+            "Font",
+            include_str!("../../res/font.wgsl"),
+            &[gpu.generic_texture_layout(), font_uniform_layout.layout()],
+            false,
+        );
 
         let image = image::load_from_memory(include_bytes!("../../res/default.png")).unwrap();
         if image.width() % 16 != 0 {
@@ -114,7 +119,12 @@ impl GuiResources {
             character_uv[index + 32].width = 4. / 256.;
         }
 
-        let gui_texture_pipeline = gpu.create_pipeline::<SpriteVertex>("Sprite Pipeline", include_str!("../../res/sprite.wgsl"), &[gpu.generic_texture_layout(), sprite_uniform_layout.layout()]);
+        let gui_texture_pipeline = gpu.create_pipeline::<SpriteVertex>(
+            "Sprite Pipeline",
+            include_str!("../../res/sprite.wgsl"),
+            &[gpu.generic_texture_layout(), sprite_uniform_layout.layout()],
+            false,
+        );
         let gui_image = image::load_from_memory(include_bytes!("../../res/gui.png")).unwrap();
         let gui_texture = gpu.create_texture(&gui_image);
         let gui_button_large = gpu.create_mesh(&[
