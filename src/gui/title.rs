@@ -71,8 +71,7 @@ pub struct TitleGui {
     pub gui: Gui,
     gui_resources: Rc<GuiResources>,
     last_mouse_pos: PhysicalPosition<f32>,
-    singleplayer: usize,
-    multiplayer: usize,
+    play: usize,
     options: usize,
     quit: usize,
     background: usize,
@@ -83,8 +82,7 @@ pub struct TitleGui {
 impl TitleGui {
     pub fn new(gpu: &GpuWrapper, gui_renderer: Rc<GuiResources>) -> TitleGui {
         let mut gui = GuiSpec::new();
-        let singleplayer = gui.button("Singleplayer");
-        let multiplayer = gui.button("Multiplayer");
+        let play = gui.button("Play");
         let options = gui.button("Options");
         let quit = gui.button("Quit");
 
@@ -102,8 +100,7 @@ impl TitleGui {
             gui: gui_renderer.build_gui(gpu, gui),
             gui_resources: gui_renderer,
             last_mouse_pos: PhysicalPosition { x: 0., y: 0. },
-            singleplayer,
-            multiplayer,
+            play,
             options,
             quit,
             background,
@@ -133,11 +130,9 @@ impl Scene for TitleGui {
 
         self.gui.update_button_scales(height);
 
-        let singleplayer = self.gui.button(self.singleplayer);
-        let x = width / 2. - singleplayer.width() / 2.;
-
-        singleplayer.set_pos(x, height * 0.4);
-        self.gui.button(self.multiplayer).set_pos(x, height * 0.3);
+        let play = self.gui.button(self.play);
+        let x = width / 2. - play.width() / 2.;
+        play.set_pos(x, height * 0.3);
         self.gui.button(self.options).set_pos(x, height * 0.2);
         self.gui.button(self.quit).set_pos(x, height * 0.1);
         self.gui.resize(gpu);
@@ -154,7 +149,7 @@ impl Scene for TitleGui {
         }
 
         if let Some(button_id) = self.gui.handle_click(gpu, state, self.last_mouse_pos) {
-            if button_id == self.singleplayer {
+            if button_id == self.play {
                 let resources = WorldResources::new(gpu);
                 return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources))))
             } else if button_id == self.quit {
