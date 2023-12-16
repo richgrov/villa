@@ -9,6 +9,7 @@ pub struct GpuWrapper {
     surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
     last_surface_size: PhysicalSize<u32>,
+    pixel_texture_sampler: wgpu::Sampler,
     texture_layout: wgpu::BindGroupLayout,
 }
 
@@ -47,6 +48,17 @@ impl GpuWrapper {
         };
         surface.configure(&device, &config);
 
+        let pixel_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            label: None,
+            ..Default::default()
+        });
+
         let texture_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Generic Texture"),
             entries: &[
@@ -77,6 +89,7 @@ impl GpuWrapper {
             surface,
             surface_config: config,
             last_surface_size: size,
+            pixel_texture_sampler,
             texture_layout,
         }
     }
@@ -234,17 +247,6 @@ impl GpuWrapper {
         );
 
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            label: None,
-            ..Default::default()
-        });
-
         self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &self.texture_layout,
             entries: &[
@@ -254,7 +256,7 @@ impl GpuWrapper {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    resource: wgpu::BindingResource::Sampler(&self.pixel_texture_sampler),
                 },
             ],
             label: None,
