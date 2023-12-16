@@ -1,3 +1,7 @@
+# villa
+
+The Minecraft Beta 1.7.3 client implemented entirely from scratch. No code or assets from the original game are used.
+
 # Credits
 
 Font by [zedseven](https://github.com/zedseven/Pixellari)
