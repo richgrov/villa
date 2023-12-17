@@ -135,7 +135,7 @@ impl Scene for World {
         }
     }
 
-    fn update(&mut self, gpu: &GpuWrapper) {
+    fn update(&mut self, gpu: &GpuWrapper) -> NextState {
         self.camera_x -= self.camera_yaw.sin() * self.forward_input * MOVE_SPEED;
         self.camera_z += self.camera_yaw.cos() * self.forward_input * MOVE_SPEED;
 
@@ -145,6 +145,7 @@ impl Scene for World {
         self.camera_y += 0.1 * self.up_input;
 
         self.update_position(gpu);
+        NextState::Continue
     }
 
     fn draw_3d<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {

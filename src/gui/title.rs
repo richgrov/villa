@@ -1,9 +1,10 @@
 use std::rc::Rc;
 
+use tokio::sync::mpsc;
 use wgpu::RenderPass;
 use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton}};
 
-use crate::{gpu::GpuWrapper, scene::{Scene, NextState}, world::{World, WorldResources}};
+use crate::{gpu::GpuWrapper, scene::{Scene, NextState}, world::{World, WorldResources}, net::Connection};
 
 use super::{GuiResources, GuiSpec, Gui, render::SpriteVertex};
 
@@ -77,6 +78,9 @@ pub struct TitleGui {
     background: usize,
     background_aspect: f32,
     logo: usize,
+
+    connection_tx: mpsc::Sender<Result<Connection, std::io::Error>>,
+    connection_rx: mpsc::Receiver<Result<Connection, std::io::Error>>,
 }
 
 impl TitleGui {
@@ -96,6 +100,8 @@ impl TitleGui {
         let logo_mesh = gpu.create_mesh(&LOGO_VERTICES, &LOGO_INDICES);
         let logo = gui.image(logo_texture, logo_mesh);
 
+        let (tx, rx) = mpsc::channel(1);
+
         TitleGui {
             gui: gui_renderer.build_gui(gpu, gui),
             gui_resources: gui_renderer,
@@ -106,6 +112,9 @@ impl TitleGui {
             background,
             background_aspect: background_image.width() as f32 / background_image.height() as f32,
             logo,
+
+            connection_tx: tx,
+            connection_rx: rx,
         }
     }
 }
@@ -150,8 +159,13 @@ impl Scene for TitleGui {
 
         if let Some(button_id) = self.gui.handle_click(gpu, state, self.last_mouse_pos) {
             if button_id == self.play {
-                let resources = WorldResources::new(gpu);
-                return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources))))
+                let tx = self.connection_tx.clone();
+                tokio::spawn(async move {
+                    let connection = Connection::connect("127.0.0.1:25565", "Steve").await;
+                    if let Err(e) = tx.send(connection).await {
+                        eprintln!("error sending connection through channel: {}", e);
+                    }
+                });
             } else if button_id == self.quit {
                 return NextState::Exit
             }
@@ -163,7 +177,19 @@ impl Scene for TitleGui {
     fn handle_key_input(&mut self, gpu: &GpuWrapper, key: winit::event::KeyboardInput) {
     }
 
-    fn update(&mut self, gpu: &GpuWrapper) {
+    fn update(&mut self, gpu: &GpuWrapper) -> NextState {
+        match self.connection_rx.try_recv() {
+            Ok(result) => match result {
+                Ok(conn) => {
+                    let resources = WorldResources::new(gpu);
+                    return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources))))
+                },
+                Err(e) => eprintln!("failed to connect: {}", e),
+            },
+            _ => {},
+        }
+
+        NextState::Continue
     }
 
     fn draw_ui<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
