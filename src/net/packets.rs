@@ -35,9 +35,9 @@ impl OutboundPacket for Login {
         let mut data = Vec::with_capacity(24);
         data.push(Self::ID);
         let _ = data.write(&self.protocol_version.to_be_bytes());
-        let _ = data.write(&self.protocol_version.to_be_bytes());
         write_str(&mut data, &self.username)?;
-        let _ = data.write(&self.dimension.to_be_bytes());
+        let _ = data.write(&self.seed.to_be_bytes());
+        let _ = data.write(&[self.dimension as u8]);
         Ok(data)
     }
 }
