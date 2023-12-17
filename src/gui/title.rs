@@ -68,7 +68,7 @@ const LOGO_VERTICES: [SpriteVertex; 8] = [
 const LOGO_INDICES: [u16; 12] = [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
 
 pub struct TitleGui {
-    pub gui: Gui,
+    gui: Gui,
     gui_resources: Rc<GuiResources>,
     last_mouse_pos: PhysicalPosition<f32>,
     play: usize,
