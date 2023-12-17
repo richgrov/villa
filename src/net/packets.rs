@@ -21,6 +21,7 @@ pub trait OutboundPacket: Packet {
 
 pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
+    fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
 }
 
@@ -100,6 +101,25 @@ impl OutboundPacket for Handshake {
         Ok(data)
     }
 }
+
+pub struct SetTime {
+    pub time: i64,
+}
+
+impl Packet for SetTime {
+    const ID: u8 = 4;
+}
+
+#[async_trait]
+impl InboundPacket for SetTime {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SetTime {
+            time: reader.read_i64().await?,
+        })
+    }
+}
+
+impl_visitor!(SetTime, handle_set_time);
 
 pub struct SpawnPos {
     pub x: i32,

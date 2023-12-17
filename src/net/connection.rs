@@ -44,6 +44,7 @@ impl Connection {
         let id = self.reader.read_u8().await?;
         Ok(match id {
             packets::Login::ID => Box::new(packets::Login::deserialize(&mut self.reader).await?),
+            packets::SetTime::ID => Box::new(packets::SetTime::deserialize(&mut self.reader).await?),
             packets::SpawnPos::ID => Box::new(packets::SpawnPos::deserialize(&mut self.reader).await?),
             other => return Err(Error::new(ErrorKind::InvalidInput, format!("unhandled packet id {}", other))),
         })

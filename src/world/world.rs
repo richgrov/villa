@@ -191,6 +191,10 @@ impl PacketHandler for World {
         println!("Seed: {}, Dimension: {}", packet.seed, packet.dimension);
     }
 
+    fn handle_set_time(&mut self, packet: &packets::SetTime) {
+        println!("World time: {}", packet.time);
+    }
+
     fn handle_spawn_pos(&mut self, packet: &packets::SpawnPos) {
         println!("Spawn pos: {}, {}, {}", packet.x, packet.y, packet.z);
     }
