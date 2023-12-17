@@ -27,6 +27,16 @@ pub trait PacketVisitor<H: PacketHandler> {
     fn visit(&self, handler: &mut H);
 }
 
+macro_rules! impl_visitor {
+    ($ty:ty, $func:ident) => {
+        impl<H: PacketHandler> PacketVisitor<H> for $ty {
+            fn visit(&self, handler: &mut H) {
+                handler.$func(self);
+            }
+        }
+    };
+}
+
 pub struct Login {
     pub protocol_version: i32,
     pub username: String,
@@ -62,11 +72,7 @@ impl OutboundPacket for Login {
     }
 }
 
-impl<H: PacketHandler> PacketVisitor<H> for Login {
-    fn visit(&self, handler: &mut H) {
-        handler.handle_login(self);
-    }
-}
+impl_visitor!(Login, handle_login);
 
 pub struct Handshake {
     pub username: String,
