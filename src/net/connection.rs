@@ -2,7 +2,7 @@ use tokio::{net::{TcpStream, tcp::{OwnedReadHalf, OwnedWriteHalf}}, io::{BufRead
 
 use std::io::{Error, ErrorKind};
 
-use super::packets::{self, InboundPacket, OutboundPacket};
+use super::packets::{self, InboundPacket, OutboundPacket, PacketVisitor, Packet, PacketHandler};
 
 pub struct Connection {
     reader: BufReader<OwnedReadHalf>,
@@ -37,6 +37,14 @@ impl Connection {
         Ok(Connection {
             reader,
             writer,
+        })
+    }
+
+    pub async fn read_next_packet<H: PacketHandler>(&mut self) -> Result<Box<dyn PacketVisitor<H> + Send>, Error> {
+        let id = self.reader.read_u8().await?;
+        Ok(match id {
+            packets::Login::ID => Box::new(packets::Login::deserialize(&mut self.reader).await?),
+            other => return Err(Error::new(ErrorKind::InvalidInput, format!("unhandled packet id {}", other))),
         })
     }
 }

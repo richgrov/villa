@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tokio::{io::BufReader, net::tcp::OwnedReadHalf};
+use tokio::{io::{BufReader, AsyncReadExt}, net::tcp::OwnedReadHalf};
 
 use super::serialize::{write_str, read_str};
 use std::io::{Error, Write};
@@ -19,6 +19,14 @@ pub trait OutboundPacket: Packet {
     fn serialize(&self) -> Result<Vec<u8>, Error>;
 }
 
+pub trait PacketHandler {
+    fn handle_login(&mut self, packet: &Login);
+}
+
+pub trait PacketVisitor<H: PacketHandler> {
+    fn visit(&self, handler: &mut H);
+}
+
 pub struct Login {
     pub protocol_version: i32,
     pub username: String,
@@ -30,6 +38,18 @@ impl Packet for Login {
     const ID: u8 = 1;
 }
 
+#[async_trait]
+impl InboundPacket for Login {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(Login {
+            protocol_version: reader.read_i32().await?,
+            username: read_str(reader, 16).await?,
+            seed: reader.read_i64().await?,
+            dimension: reader.read_i8().await?,
+        })
+    }
+}
+
 impl OutboundPacket for Login {
     fn serialize(&self) -> Result<Vec<u8>, Error> {
         let mut data = Vec::with_capacity(24);
@@ -39,6 +59,12 @@ impl OutboundPacket for Login {
         let _ = data.write(&self.seed.to_be_bytes());
         let _ = data.write(&[self.dimension as u8]);
         Ok(data)
+    }
+}
+
+impl<H: PacketHandler> PacketVisitor<H> for Login {
+    fn visit(&self, handler: &mut H) {
+        handler.handle_login(self);
     }
 }
 

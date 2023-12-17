@@ -182,7 +182,7 @@ impl Scene for TitleGui {
             Ok(result) => match result {
                 Ok(conn) => {
                     let resources = WorldResources::new(gpu);
-                    return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources))))
+                    return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources), conn)))
                 },
                 Err(e) => eprintln!("failed to connect: {}", e),
             },
