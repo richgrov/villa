@@ -21,6 +21,7 @@ pub trait OutboundPacket: Packet {
 
 pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
+    fn handle_spawn_pos(&mut self, packet: &SpawnPos);
 }
 
 pub trait PacketVisitor<H: PacketHandler> {
@@ -99,3 +100,26 @@ impl OutboundPacket for Handshake {
         Ok(data)
     }
 }
+
+pub struct SpawnPos {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+impl Packet for SpawnPos {
+    const ID: u8 = 6;
+}
+
+#[async_trait]
+impl InboundPacket for SpawnPos {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SpawnPos {
+            x: reader.read_i32().await?,
+            y: reader.read_i32().await?,
+            z: reader.read_i32().await?,
+        })
+    }
+}
+
+impl_visitor!(SpawnPos, handle_spawn_pos);

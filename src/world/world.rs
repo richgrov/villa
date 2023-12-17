@@ -190,4 +190,8 @@ impl PacketHandler for World {
     fn handle_login(&mut self, packet: &packets::Login) {
         println!("Seed: {}, Dimension: {}", packet.seed, packet.dimension);
     }
+
+    fn handle_spawn_pos(&mut self, packet: &packets::SpawnPos) {
+        println!("Spawn pos: {}, {}, {}", packet.x, packet.y, packet.z);
+    }
 }
