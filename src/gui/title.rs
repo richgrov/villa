@@ -174,7 +174,7 @@ impl Scene for TitleGui {
         NextState::Continue
     }
 
-    fn handle_key_input(&mut self, gpu: &GpuWrapper, key: winit::event::KeyboardInput) {
+    fn handle_key_input(&mut self, _gpu: &GpuWrapper, _key: winit::event::KeyboardInput) {
     }
 
     fn update(&mut self, gpu: &GpuWrapper) -> NextState {

@@ -100,7 +100,7 @@ impl World {
 }
 
 impl Scene for World {
-    fn handle_resize(&mut self, gpu: &crate::gpu::GpuWrapper, width: f32, height: f32) {
+    fn handle_resize(&mut self, _gpu: &crate::gpu::GpuWrapper, width: f32, height: f32) {
         self.projection = Mat4::perspective_lh((70f32).to_radians(), width / height, 0.01, 1000.);
     }
 
@@ -113,12 +113,12 @@ impl Scene for World {
         self.last_cursor_position = Some(position);
     }
 
-    fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, button: MouseButton) -> NextState {
+    fn handle_click(&mut self, gpu: &GpuWrapper, _state: ElementState, _button: MouseButton) -> NextState {
         self.chunk.rebuild_mesh(gpu);
         NextState::Continue
     }
 
-    fn handle_key_input(&mut self, gpu: &GpuWrapper, key: KeyboardInput) {
+    fn handle_key_input(&mut self, _gpu: &GpuWrapper, key: KeyboardInput) {
         let factor = match key.state {
             ElementState::Pressed => 1.,
             ElementState::Released => 0.,
