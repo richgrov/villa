@@ -1,4 +1,4 @@
-use std::io::{Error, Write, ErrorKind};
+use std::{io::{Error, Write, ErrorKind}, collections::HashMap};
 
 use tokio::io::AsyncReadExt;
 
@@ -33,4 +33,56 @@ pub fn write_str<W: Write>(writer: &mut W, s: &str) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+pub async fn read_entity_attributes<R: AsyncReadExt + std::marker::Unpin>(
+    reader: &mut R
+) -> Result<HashMap<i8, EntityAttributeValue>, Error> {
+    let mut entries = HashMap::with_capacity(2);
+
+    loop {
+        let header = reader.read_i8().await?;
+        if header == 127 {
+            break
+        }
+
+        let ty = header >> 5;
+        let id = header & 0b11111;
+        entries.insert(id, EntityAttributeValue::read(ty, reader).await?);
+    }
+
+    Ok(entries)
+}
+
+pub enum EntityAttributeValue {
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    F32(f32),
+    Str(String),
+    Item { id: i16, num_items: i8, data: i16, },
+    ChunkPos(i32, i32, i32),
+}
+
+impl EntityAttributeValue {
+    pub async fn read<R: AsyncReadExt + std::marker::Unpin>(ty: i8, reader: &mut R) -> Result<EntityAttributeValue, Error> {
+        Ok(match ty {
+            0 => EntityAttributeValue::I8(reader.read_i8().await?),
+            1 => EntityAttributeValue::I16(reader.read_i16().await?),
+            2 => EntityAttributeValue::I32(reader.read_i32().await?),
+            3 => EntityAttributeValue::F32(reader.read_f32().await?),
+            4 => EntityAttributeValue::Str(read_str(reader, 64).await?),
+            5 => EntityAttributeValue::Item{
+                id: reader.read_i16().await?,
+                num_items: reader.read_i8().await?,
+                data: reader.read_i16().await?,
+            },
+            6 => EntityAttributeValue::ChunkPos(
+                reader.read_i32().await?,
+                reader.read_i32().await?,
+                reader.read_i32().await?,
+            ),
+            other => return Err(Error::new(ErrorKind::InvalidInput, format!("entity data type {} is not supported", other))),
+        })
+    }
 }

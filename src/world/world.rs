@@ -198,4 +198,8 @@ impl PacketHandler for World {
     fn handle_spawn_pos(&mut self, packet: &packets::SpawnPos) {
         println!("Spawn pos: {}, {}, {}", packet.x, packet.y, packet.z);
     }
+
+    fn handle_spawn_entity(&mut self, packet: &packets::SpawnEntity) {
+        println!("Entity id {}, type {}:\nAt {}, {}, {}", packet.id, packet.ty, packet.x, packet.y, packet.z);
+    }
 }

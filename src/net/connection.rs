@@ -57,6 +57,7 @@ impl Connection {
             Login,
             SetTime,
             SpawnPos,
+            SpawnEntity,
         ))
     }
 }

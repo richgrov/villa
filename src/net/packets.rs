@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use tokio::{io::{BufReader, AsyncReadExt}, net::tcp::OwnedReadHalf};
 
-use super::serialize::{write_str, read_str};
-use std::io::{Error, Write};
+use super::serialize::{write_str, read_str, EntityAttributeValue, read_entity_attributes};
+use std::{io::{Error, Write}, collections::HashMap};
 
 pub const PROTOCOL_VERSION: i32 = 14;
 
@@ -23,6 +23,7 @@ pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
     fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
+    fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
 }
 
 pub trait PacketVisitor<H: PacketHandler> {
@@ -143,3 +144,36 @@ impl InboundPacket for SpawnPos {
 }
 
 impl_visitor!(SpawnPos, handle_spawn_pos);
+
+pub struct SpawnEntity {
+    pub id: i32,
+    pub ty: i8,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub yaw: i8,
+    pub pitch: i8,
+    pub attributes: HashMap<i8, EntityAttributeValue>,
+}
+
+impl Packet for SpawnEntity {
+    const ID: u8 = 24;
+}
+
+#[async_trait]
+impl InboundPacket for SpawnEntity {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SpawnEntity {
+            id: reader.read_i32().await?,
+            ty: reader.read_i8().await?,
+            x: reader.read_i32().await?,
+            y: reader.read_i32().await?,
+            z: reader.read_i32().await?,
+            yaw: reader.read_i8().await?,
+            pitch: reader.read_i8().await?,
+            attributes: read_entity_attributes(reader).await?,
+        })
+    }
+}
+
+impl_visitor!(SpawnEntity, handle_spawn_entity);
