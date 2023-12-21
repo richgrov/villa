@@ -28,6 +28,7 @@ pub trait PacketHandler {
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
+    fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
 }
 
 pub trait PacketVisitor<H: PacketHandler> {
@@ -287,3 +288,37 @@ impl InboundPacket for InitChunk {
 }
 
 impl_visitor!(InitChunk, handle_init_chunk);
+
+pub struct SetInventoryItems {
+    pub inventory_id: i8,
+    pub items: Vec<Option<(i16, i8, i16)>>,
+}
+
+id!(SetInventoryItems, 104);
+
+#[async_trait]
+impl InboundPacket for SetInventoryItems {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        let inventory_id = reader.read_i8().await?;
+        let num_items = reader.read_i16().await?;
+        let mut items = Vec::with_capacity(num_items as usize);
+        for _ in 0..num_items {
+            let id = reader.read_i16().await?;
+            if id < 0 {
+                items.push(None);
+                continue
+            }
+
+            let count = reader.read_i8().await?;
+            let data = reader.read_i16().await?;
+            items.push(Some((id, count, data)));
+        }
+
+        Ok(SetInventoryItems {
+            inventory_id,
+            items,
+        })
+    }
+}
+
+impl_visitor!(SetInventoryItems, handle_set_inventory_items);

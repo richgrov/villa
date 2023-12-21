@@ -218,4 +218,8 @@ impl PacketHandler for World {
     fn handle_init_chunk(&mut self, packet: &packets::InitChunk) {
         println!("Init chunk at {}, {}: {}", packet.chunk_x, packet.chunk_z, packet.init);
     }
+
+    fn handle_set_inventory_items(&mut self, packet: &packets::SetInventoryItems) {
+        println!("Inventory {}: {} items", packet.inventory_id, packet.items.len());
+    }
 }
