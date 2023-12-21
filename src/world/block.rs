@@ -5,6 +5,15 @@ pub enum Block {
 }
 
 impl Block {
+    pub fn read(ty: u8, _data: u8) -> Option<Block> {
+        let block = match ty {
+            0 => Block::Air,
+            1 => Block::Stone,
+            _ => return None,
+        };
+        Some(block)
+    }
+
     pub fn model(self) -> BlockModel {
         match self {
             Block::Air => unreachable!(),
