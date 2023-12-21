@@ -28,6 +28,7 @@ pub trait PacketHandler {
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
+    fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
 }
 
@@ -288,6 +289,34 @@ impl InboundPacket for InitChunk {
 }
 
 impl_visitor!(InitChunk, handle_init_chunk);
+
+pub struct SetInventorySlot {
+    pub inventory_id: i8,
+    pub slot: i16,
+    pub item: Option<(i16, i8, i16)>,
+}
+
+id!(SetInventorySlot, 103);
+
+#[async_trait]
+impl InboundPacket for SetInventorySlot {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SetInventorySlot {
+            inventory_id: reader.read_i8().await?,
+            slot: reader.read_i16().await?,
+            item: {
+                let id = reader.read_i16().await?;
+                if id < 0 {
+                    None
+                } else {
+                    Some((id, reader.read_i8().await?, reader.read_i16().await?))
+                }
+            },
+        })
+    }
+}
+
+impl_visitor!(SetInventorySlot, handle_set_inventory_slot);
 
 pub struct SetInventoryItems {
     pub inventory_id: i8,

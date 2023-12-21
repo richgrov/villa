@@ -62,6 +62,7 @@ impl Connection {
             SpawnEntity,
             EntityVelocity,
             InitChunk,
+            SetInventorySlot,
             SetInventoryItems,
         ))
     }
