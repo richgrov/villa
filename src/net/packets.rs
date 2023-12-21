@@ -24,6 +24,7 @@ pub trait PacketHandler {
     fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
     fn handle_pos_rot(&mut self, packet: &PosRot);
+    fn handle_spawn_item_entity(&mut self, packet: &SpawnItemEntity);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
@@ -176,6 +177,41 @@ impl InboundPacket for PosRot {
 }
 
 impl_visitor!(PosRot, handle_pos_rot);
+
+pub struct SpawnItemEntity {
+    pub entity_id: i32,
+    pub item_id: i16,
+    pub count: i8,
+    pub data: i16,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub vel_x: i8,
+    pub vel_y: i8,
+    pub vel_z: i8,
+}
+
+id!(SpawnItemEntity, 21);
+
+#[async_trait]
+impl InboundPacket for SpawnItemEntity {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SpawnItemEntity {
+            entity_id: reader.read_i32().await?,
+            item_id: reader.read_i16().await?,
+            count: reader.read_i8().await?,
+            data: reader.read_i16().await?,
+            x: reader.read_i32().await?,
+            y: reader.read_i32().await?,
+            z: reader.read_i32().await?,
+            vel_x: reader.read_i8().await?,
+            vel_y: reader.read_i8().await?,
+            vel_z: reader.read_i8().await?,
+        })
+    }
+}
+
+impl_visitor!(SpawnItemEntity, handle_spawn_item_entity);
 
 pub struct SpawnEntity {
     pub id: i32,

@@ -203,6 +203,10 @@ impl PacketHandler for World {
         println!("Camera: {}, {}, {}, {}, {}", packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
     }
 
+    fn handle_spawn_item_entity(&mut self, packet: &packets::SpawnItemEntity) {
+        println!("Item on ground at {}, {}, {}: {}", packet.x, packet.y, packet.z, packet.item_id);
+    }
+
     fn handle_spawn_entity(&mut self, packet: &packets::SpawnEntity) {
         println!("Entity id {}, type {}:\nAt {}, {}, {}", packet.id, packet.ty, packet.x, packet.y, packet.z);
     }

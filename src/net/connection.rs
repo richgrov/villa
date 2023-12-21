@@ -58,6 +58,7 @@ impl Connection {
             SetTime,
             SpawnPos,
             PosRot,
+            SpawnItemEntity,
             SpawnEntity,
             EntityVelocity,
             InitChunk,
