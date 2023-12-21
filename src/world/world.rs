@@ -227,6 +227,10 @@ impl PacketHandler for World {
         println!("Init chunk at {}, {}: {}", packet.chunk_x, packet.chunk_z, packet.init);
     }
 
+    fn handle_set_block(&mut self, packet: &packets::SetBlock) {
+        println!("Block at {}, {}, {}: {:?}", packet.x, packet.y, packet.z, packet.block);
+    }
+
     fn handle_set_inventory_slot(&mut self, packet: &packets::SetInventorySlot) {
         println!("Inventory {}, slot {}: {:?}", packet.inventory_id, packet.slot, packet.item.map(|i| i.0))
     }

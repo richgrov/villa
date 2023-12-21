@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use tokio::{io::{BufReader, AsyncReadExt}, net::tcp::OwnedReadHalf};
 
+use crate::world::Block;
+
 use super::serialize::{write_str, read_str, EntityAttributeValue, read_entity_attributes};
 use std::{io::{Error, Write}, collections::HashMap};
 
@@ -30,6 +32,7 @@ pub trait PacketHandler {
     fn handle_move_entity(&mut self, packet: &MoveEntity);
     fn handle_entity_move_rot(&mut self, packet: &EntityMoveRot);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
+    fn handle_set_block(&mut self, packet: &SetBlock);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
 }
@@ -341,6 +344,29 @@ impl InboundPacket for InitChunk {
 }
 
 impl_visitor!(InitChunk, handle_init_chunk);
+
+pub struct SetBlock {
+    pub x: i32,
+    pub y: u8,
+    pub z: i32,
+    pub block: Block,
+}
+
+id!(SetBlock, 53);
+
+#[async_trait]
+impl InboundPacket for SetBlock {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SetBlock {
+            x: reader.read_i32().await?,
+            y: reader.read_u8().await?,
+            z: reader.read_i32().await?,
+            block: Block::read(reader.read_u8().await?, reader.read_u8().await?).unwrap_or(Block::Air),
+        })
+    }
+}
+
+impl_visitor!(SetBlock, handle_set_block);
 
 pub struct SetInventorySlot {
     pub inventory_id: i8,
