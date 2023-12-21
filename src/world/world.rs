@@ -199,6 +199,10 @@ impl PacketHandler for World {
         println!("Spawn pos: {}, {}, {}", packet.x, packet.y, packet.z);
     }
 
+    fn handle_pos_rot(&mut self, packet: &packets::PosRot) {
+        println!("Camera: {}, {}, {}, {}, {}", packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
+    }
+
     fn handle_spawn_entity(&mut self, packet: &packets::SpawnEntity) {
         println!("Entity id {}, type {}:\nAt {}, {}, {}", packet.id, packet.ty, packet.x, packet.y, packet.z);
     }

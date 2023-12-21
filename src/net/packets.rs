@@ -23,6 +23,7 @@ pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
     fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
+    fn handle_pos_rot(&mut self, packet: &PosRot);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
@@ -146,6 +147,37 @@ impl InboundPacket for SpawnPos {
 }
 
 impl_visitor!(SpawnPos, handle_spawn_pos);
+
+pub struct PosRot {
+    pub x: f64,
+    pub y: f64,
+    pub stance: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub grounded: bool,
+}
+
+impl Packet for PosRot {
+    const ID: u8 = 13;
+}
+
+#[async_trait]
+impl InboundPacket for PosRot {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(PosRot {
+            x: reader.read_f64().await?,
+            y: reader.read_f64().await?,
+            stance: reader.read_f64().await?,
+            z: reader.read_f64().await?,
+            yaw: reader.read_f32().await?,
+            pitch: reader.read_f32().await?,
+            grounded: reader.read_u8().await? != 0,
+        })
+    }
+}
+
+impl_visitor!(PosRot, handle_pos_rot);
 
 pub struct SpawnEntity {
     pub id: i32,
