@@ -24,6 +24,7 @@ pub trait PacketHandler {
     fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
+    fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
 }
 
 pub trait PacketVisitor<H: PacketHandler> {
@@ -177,3 +178,28 @@ impl InboundPacket for SpawnEntity {
 }
 
 impl_visitor!(SpawnEntity, handle_spawn_entity);
+
+pub struct EntityVelocity {
+    pub id: i32,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
+}
+
+impl Packet for EntityVelocity {
+    const ID: u8 = 28;
+}
+
+#[async_trait]
+impl InboundPacket for EntityVelocity {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(EntityVelocity {
+            id: reader.read_i32().await?,
+            x: reader.read_i16().await?,
+            y: reader.read_i16().await?,
+            z: reader.read_i16().await?,
+        })
+    }
+}
+
+impl_visitor!(EntityVelocity, handle_entity_velocity);
