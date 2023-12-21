@@ -33,6 +33,14 @@ pub trait PacketVisitor<H: PacketHandler> {
     fn visit(&self, handler: &mut H);
 }
 
+macro_rules! id {
+    ($ty:ty, $id:literal) => {
+        impl Packet for $ty {
+            const ID: u8 = $id;
+        }
+    };
+}
+
 macro_rules! impl_visitor {
     ($ty:ty, $func:ident) => {
         impl<H: PacketHandler> PacketVisitor<H> for $ty {
@@ -50,9 +58,7 @@ pub struct Login {
     pub dimension: i8,
 }
 
-impl Packet for Login {
-    const ID: u8 = 1;
-}
+id!(Login, 1);
 
 #[async_trait]
 impl InboundPacket for Login {
@@ -84,9 +90,7 @@ pub struct Handshake {
     pub username: String,
 }
 
-impl Packet for Handshake {
-    const ID: u8 = 2;
-}
+id!(Handshake, 2);
 
 #[async_trait]
 impl InboundPacket for Handshake {
@@ -110,9 +114,7 @@ pub struct SetTime {
     pub time: i64,
 }
 
-impl Packet for SetTime {
-    const ID: u8 = 4;
-}
+id!(SetTime, 4);
 
 #[async_trait]
 impl InboundPacket for SetTime {
@@ -131,9 +133,7 @@ pub struct SpawnPos {
     pub z: i32,
 }
 
-impl Packet for SpawnPos {
-    const ID: u8 = 6;
-}
+id!(SpawnPos, 6);
 
 #[async_trait]
 impl InboundPacket for SpawnPos {
@@ -158,9 +158,7 @@ pub struct PosRot {
     pub grounded: bool,
 }
 
-impl Packet for PosRot {
-    const ID: u8 = 13;
-}
+id!(PosRot, 13);
 
 #[async_trait]
 impl InboundPacket for PosRot {
@@ -190,9 +188,7 @@ pub struct SpawnEntity {
     pub attributes: HashMap<i8, EntityAttributeValue>,
 }
 
-impl Packet for SpawnEntity {
-    const ID: u8 = 24;
-}
+id!(SpawnEntity, 24);
 
 #[async_trait]
 impl InboundPacket for SpawnEntity {
@@ -219,9 +215,7 @@ pub struct EntityVelocity {
     pub z: i16,
 }
 
-impl Packet for EntityVelocity {
-    const ID: u8 = 28;
-}
+id!(EntityVelocity, 28);
 
 #[async_trait]
 impl InboundPacket for EntityVelocity {
@@ -243,9 +237,7 @@ pub struct InitChunk {
     pub init: bool,
 }
 
-impl Packet for InitChunk {
-    const ID: u8 = 50;
-}
+id!(InitChunk, 50);
 
 #[async_trait]
 impl InboundPacket for InitChunk {
