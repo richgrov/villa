@@ -28,6 +28,7 @@ pub trait PacketHandler {
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
     fn handle_move_entity(&mut self, packet: &MoveEntity);
+    fn handle_entity_move_rot(&mut self, packet: &EntityMoveRot);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
@@ -292,6 +293,33 @@ impl InboundPacket for MoveEntity {
 }
 
 impl_visitor!(MoveEntity, handle_move_entity);
+
+pub struct EntityMoveRot {
+    pub id: i32,
+    pub x: i8,
+    pub y: i8,
+    pub z: i8,
+    pub yaw: i8,
+    pub pitch: i8,
+}
+
+id!(EntityMoveRot, 33);
+
+#[async_trait]
+impl InboundPacket for EntityMoveRot {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(EntityMoveRot {
+            id: reader.read_i32().await?,
+            x: reader.read_i8().await?,
+            y: reader.read_i8().await?,
+            z: reader.read_i8().await?,
+            yaw: reader.read_i8().await?,
+            pitch: reader.read_i8().await?,
+        })
+    }
+}
+
+impl_visitor!(EntityMoveRot, handle_entity_move_rot);
 
 pub struct InitChunk {
     pub chunk_x: i32,

@@ -219,6 +219,10 @@ impl PacketHandler for World {
         println!("Move entity {}: {}, {}, {}", packet.id, packet.x, packet.y, packet.z);
     }
 
+    fn handle_entity_move_rot(&mut self, packet: &packets::EntityMoveRot) {
+        println!("Move entity {}: {}, {}, {}, {}, {}", packet.id, packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
+    }
+
     fn handle_init_chunk(&mut self, packet: &packets::InitChunk) {
         println!("Init chunk at {}, {}: {}", packet.chunk_x, packet.chunk_z, packet.init);
     }
