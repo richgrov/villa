@@ -25,6 +25,7 @@ pub trait PacketHandler {
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
+    fn handle_init_chunk(&mut self, packet: &InitChunk);
 }
 
 pub trait PacketVisitor<H: PacketHandler> {
@@ -203,3 +204,26 @@ impl InboundPacket for EntityVelocity {
 }
 
 impl_visitor!(EntityVelocity, handle_entity_velocity);
+
+pub struct InitChunk {
+    pub chunk_x: i32,
+    pub chunk_z: i32,
+    pub init: bool,
+}
+
+impl Packet for InitChunk {
+    const ID: u8 = 50;
+}
+
+#[async_trait]
+impl InboundPacket for InitChunk {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(InitChunk {
+            chunk_x: reader.read_i32().await?,
+            chunk_z: reader.read_i32().await?,
+            init: reader.read_u8().await? != 0,
+        })
+    }
+}
+
+impl_visitor!(InitChunk, handle_init_chunk);

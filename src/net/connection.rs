@@ -59,6 +59,7 @@ impl Connection {
             SpawnPos,
             SpawnEntity,
             EntityVelocity,
+            InitChunk,
         ))
     }
 }

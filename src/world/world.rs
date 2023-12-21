@@ -206,4 +206,8 @@ impl PacketHandler for World {
     fn handle_entity_velocity(&mut self, packet: &packets::EntityVelocity) {
         println!("Move entity {}: {}, {}, {}", packet.id, packet.x, packet.y, packet.z);
     }
+
+    fn handle_init_chunk(&mut self, packet: &packets::InitChunk) {
+        println!("Init chunk at {}, {}: {}", packet.chunk_x, packet.chunk_z, packet.init);
+    }
 }
