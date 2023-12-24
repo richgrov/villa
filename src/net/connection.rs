@@ -64,6 +64,7 @@ impl Connection {
             MoveEntity,
             EntityMoveRot,
             InitChunk,
+            SetBlocks,
             SetBlock,
             SetInventorySlot,
             SetInventoryItems,

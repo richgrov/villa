@@ -32,6 +32,7 @@ pub trait PacketHandler {
     fn handle_move_entity(&mut self, packet: &MoveEntity);
     fn handle_entity_move_rot(&mut self, packet: &EntityMoveRot);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
+    fn handle_set_blocks(&mut self, packet: &SetBlocks);
     fn handle_set_block(&mut self, packet: &SetBlock);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
@@ -344,6 +345,44 @@ impl InboundPacket for InitChunk {
 }
 
 impl_visitor!(InitChunk, handle_init_chunk);
+
+pub struct SetBlocks {
+    pub chunk_x: i32,
+    pub chunk_z: i32,
+    pub positions: Vec<i16>,
+    pub types: Vec<u8>,
+    pub data: Vec<u8>,
+}
+
+id!(SetBlocks, 52);
+
+#[async_trait]
+impl InboundPacket for SetBlocks {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        let chunk_x = reader.read_i32().await?;
+        let chunk_z = reader.read_i32().await?;
+        let num_blocks = reader.read_u16().await? as usize;
+        let mut positions = Vec::with_capacity(num_blocks);
+        for _ in 0..num_blocks {
+            positions.push(reader.read_i16().await?);
+        }
+
+        let mut types = Vec::with_capacity(num_blocks);
+        reader.read(&mut types).await?;
+        let mut data = Vec::with_capacity(num_blocks);
+        reader.read(&mut data).await?;
+
+        Ok(SetBlocks {
+            chunk_x,
+            chunk_z,
+            positions,
+            types,
+            data,
+        })
+    }
+}
+
+impl_visitor!(SetBlocks, handle_set_blocks);
 
 pub struct SetBlock {
     pub x: i32,
