@@ -235,6 +235,10 @@ impl PacketHandler for World {
         println!("Move entity {}: {}, {}, {}, {}, {}", packet.id, packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
     }
 
+    fn handle_entity_pos_rot(&mut self, packet: &packets::EntityPosRot) {
+        println!("Entity {} now at {}, {}, {}, {}, {}", packet.id, packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
+    }
+
     fn handle_set_entity_health(&mut self, packet: &packets::SetEntityHealth) {
         println!("Health of {}: {}", packet.id, packet.health);
     }
