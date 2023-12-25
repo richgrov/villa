@@ -215,6 +215,10 @@ impl PacketHandler for World {
         println!("Entity {} velocity: {}, {}, {}", packet.id, packet.x, packet.y, packet.z);
     }
 
+    fn handle_remove_entity(&mut self, packet: &packets::RemoveEntity) {
+        println!("Removing entity {}", packet.id);
+    }
+
     fn handle_move_entity(&mut self, packet: &packets::MoveEntity) {
         println!("Move entity {}: {}, {}, {}", packet.id, packet.x, packet.y, packet.z);
     }

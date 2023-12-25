@@ -29,6 +29,7 @@ pub trait PacketHandler {
     fn handle_spawn_item_entity(&mut self, packet: &SpawnItemEntity);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
+    fn handle_remove_entity(&mut self, packet: &RemoveEntity);
     fn handle_move_entity(&mut self, packet: &MoveEntity);
     fn handle_entity_move_rot(&mut self, packet: &EntityMoveRot);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
@@ -274,6 +275,23 @@ impl InboundPacket for EntityVelocity {
 }
 
 impl_visitor!(EntityVelocity, handle_entity_velocity);
+
+pub struct RemoveEntity {
+    pub id: i32,
+}
+
+id!(RemoveEntity, 29);
+
+#[async_trait]
+impl InboundPacket for RemoveEntity {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(RemoveEntity {
+            id: reader.read_i32().await?,
+        })
+    }
+}
+
+impl_visitor!(RemoveEntity, handle_remove_entity);
 
 pub struct MoveEntity {
     pub id: i32,
