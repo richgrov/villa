@@ -66,6 +66,7 @@ impl Connection {
             RemoveEntity,
             MoveEntity,
             EntityMoveRot,
+            SetEntityHealth,
             InitChunk,
             SetBlocks,
             SetBlock,
