@@ -185,7 +185,7 @@ pub struct Position {
     pub y: f64,
     pub stance: f64,
     pub z: f64,
-    pub grounded: u8,
+    pub grounded: bool,
 }
 
 id!(Position, 11);
@@ -198,7 +198,7 @@ impl InboundPacket for Position {
             y: reader.read_f64().await?,
             stance: reader.read_f64().await?,
             z: reader.read_f64().await?,
-            grounded: reader.read_u8().await?,
+            grounded: reader.read_u8().await? != 0,
         })
     }
 }
