@@ -80,6 +80,7 @@ pub struct Login {
 }
 
 id!(Login, 1);
+impl_visitor!(Login, handle_login);
 
 #[async_trait]
 impl InboundPacket for Login {
@@ -104,8 +105,6 @@ impl OutboundPacket for Login {
         Ok(data)
     }
 }
-
-impl_visitor!(Login, handle_login);
 
 pub struct Handshake {
     pub username: String,
@@ -136,6 +135,7 @@ pub struct Chat {
 }
 
 id!(Chat, 3);
+impl_visitor!(Chat, handle_chat);
 
 #[async_trait]
 impl InboundPacket for Chat {
@@ -146,13 +146,12 @@ impl InboundPacket for Chat {
     }
 }
 
-impl_visitor!(Chat, handle_chat);
-
 pub struct SetTime {
     pub time: i64,
 }
 
 id!(SetTime, 4);
+impl_visitor!(SetTime, handle_set_time);
 
 #[async_trait]
 impl InboundPacket for SetTime {
@@ -163,8 +162,6 @@ impl InboundPacket for SetTime {
     }
 }
 
-impl_visitor!(SetTime, handle_set_time);
-
 pub struct SpawnPos {
     pub x: i32,
     pub y: i32,
@@ -172,6 +169,7 @@ pub struct SpawnPos {
 }
 
 id!(SpawnPos, 6);
+impl_visitor!(SpawnPos, handle_spawn_pos);
 
 #[async_trait]
 impl InboundPacket for SpawnPos {
@@ -184,13 +182,12 @@ impl InboundPacket for SpawnPos {
     }
 }
 
-impl_visitor!(SpawnPos, handle_spawn_pos);
-
 pub struct SetHealth {
     pub health: i16,
 }
 
 id!(SetHealth, 8);
+impl_visitor!(SetHealth, handle_set_health);
 
 #[async_trait]
 impl InboundPacket for SetHealth {
@@ -201,8 +198,6 @@ impl InboundPacket for SetHealth {
     }
 }
 
-impl_visitor!(SetHealth, handle_set_health);
-
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -212,6 +207,7 @@ pub struct Position {
 }
 
 id!(Position, 11);
+impl_visitor!(Position, handle_pos);
 
 #[async_trait]
 impl InboundPacket for Position {
@@ -226,8 +222,6 @@ impl InboundPacket for Position {
     }
 }
 
-impl_visitor!(Position, handle_pos);
-
 pub struct PosRot {
     pub x: f64,
     pub y: f64,
@@ -239,6 +233,7 @@ pub struct PosRot {
 }
 
 id!(PosRot, 13);
+impl_visitor!(PosRot, handle_pos_rot);
 
 #[async_trait]
 impl InboundPacket for PosRot {
@@ -255,8 +250,6 @@ impl InboundPacket for PosRot {
     }
 }
 
-impl_visitor!(PosRot, handle_pos_rot);
-
 pub struct SpawnItemEntity {
     pub entity_id: i32,
     pub item_id: i16,
@@ -271,6 +264,7 @@ pub struct SpawnItemEntity {
 }
 
 id!(SpawnItemEntity, 21);
+impl_visitor!(SpawnItemEntity, handle_spawn_item_entity);
 
 #[async_trait]
 impl InboundPacket for SpawnItemEntity {
@@ -290,8 +284,6 @@ impl InboundPacket for SpawnItemEntity {
     }
 }
 
-impl_visitor!(SpawnItemEntity, handle_spawn_item_entity);
-
 pub struct SpawnInsentientEntity {
     pub id: i32,
     pub ty: u8,
@@ -303,6 +295,7 @@ pub struct SpawnInsentientEntity {
 }
 
 id!(SpawnInsentientEntity, 23);
+impl_visitor!(SpawnInsentientEntity, handle_spawn_insentient_entity);
 
 #[async_trait]
 impl InboundPacket for SpawnInsentientEntity {
@@ -332,8 +325,6 @@ impl InboundPacket for SpawnInsentientEntity {
     }
 }
 
-impl_visitor!(SpawnInsentientEntity, handle_spawn_insentient_entity);
-
 pub struct SpawnEntity {
     pub id: i32,
     pub ty: i8,
@@ -346,6 +337,7 @@ pub struct SpawnEntity {
 }
 
 id!(SpawnEntity, 24);
+impl_visitor!(SpawnEntity, handle_spawn_entity);
 
 #[async_trait]
 impl InboundPacket for SpawnEntity {
@@ -363,8 +355,6 @@ impl InboundPacket for SpawnEntity {
     }
 }
 
-impl_visitor!(SpawnEntity, handle_spawn_entity);
-
 pub struct EntityVelocity {
     pub id: i32,
     pub x: i16,
@@ -373,6 +363,7 @@ pub struct EntityVelocity {
 }
 
 id!(EntityVelocity, 28);
+impl_visitor!(EntityVelocity, handle_entity_velocity);
 
 #[async_trait]
 impl InboundPacket for EntityVelocity {
@@ -386,13 +377,12 @@ impl InboundPacket for EntityVelocity {
     }
 }
 
-impl_visitor!(EntityVelocity, handle_entity_velocity);
-
 pub struct RemoveEntity {
     pub id: i32,
 }
 
 id!(RemoveEntity, 29);
+impl_visitor!(RemoveEntity, handle_remove_entity);
 
 #[async_trait]
 impl InboundPacket for RemoveEntity {
@@ -403,8 +393,6 @@ impl InboundPacket for RemoveEntity {
     }
 }
 
-impl_visitor!(RemoveEntity, handle_remove_entity);
-
 pub struct MoveEntity {
     pub id: i32,
     pub x: i8,
@@ -413,6 +401,7 @@ pub struct MoveEntity {
 }
 
 id!(MoveEntity, 31);
+impl_visitor!(MoveEntity, handle_move_entity);
 
 #[async_trait]
 impl InboundPacket for MoveEntity {
@@ -426,8 +415,6 @@ impl InboundPacket for MoveEntity {
     }
 }
 
-impl_visitor!(MoveEntity, handle_move_entity);
-
 pub struct EntityMoveRot {
     pub id: i32,
     pub x: i8,
@@ -438,6 +425,7 @@ pub struct EntityMoveRot {
 }
 
 id!(EntityMoveRot, 33);
+impl_visitor!(EntityMoveRot, handle_entity_move_rot);
 
 #[async_trait]
 impl InboundPacket for EntityMoveRot {
@@ -453,8 +441,6 @@ impl InboundPacket for EntityMoveRot {
     }
 }
 
-impl_visitor!(EntityMoveRot, handle_entity_move_rot);
-
 pub struct EntityPosRot {
     pub id: i32,
     pub x: i32,
@@ -465,6 +451,7 @@ pub struct EntityPosRot {
 }
 
 id!(EntityPosRot, 34);
+impl_visitor!(EntityPosRot, handle_entity_pos_rot);
 
 #[async_trait]
 impl InboundPacket for EntityPosRot {
@@ -480,14 +467,13 @@ impl InboundPacket for EntityPosRot {
     }
 }
 
-impl_visitor!(EntityPosRot, handle_entity_pos_rot);
-
 pub struct SetEntityHealth {
     pub id: i32,
     pub health: i8,
 }
 
 id!(SetEntityHealth, 38);
+impl_visitor!(SetEntityHealth, handle_set_entity_health);
 
 #[async_trait]
 impl InboundPacket for SetEntityHealth {
@@ -499,14 +485,13 @@ impl InboundPacket for SetEntityHealth {
     }
 }
 
-impl_visitor!(SetEntityHealth, handle_set_entity_health);
-
 pub struct UpdateEntityAttributes {
     pub id: i32,
     pub attributes: HashMap<i8, EntityAttributeValue>,
 }
 
 id!(UpdateEntityAttributes, 40);
+impl_visitor!(UpdateEntityAttributes, handle_update_entity_attributes);
 
 #[async_trait]
 impl InboundPacket for UpdateEntityAttributes {
@@ -518,8 +503,6 @@ impl InboundPacket for UpdateEntityAttributes {
     }
 }
 
-impl_visitor!(UpdateEntityAttributes, handle_update_entity_attributes);
-
 pub struct InitChunk {
     pub chunk_x: i32,
     pub chunk_z: i32,
@@ -527,6 +510,7 @@ pub struct InitChunk {
 }
 
 id!(InitChunk, 50);
+impl_visitor!(InitChunk, handle_init_chunk);
 
 #[async_trait]
 impl InboundPacket for InitChunk {
@@ -539,8 +523,6 @@ impl InboundPacket for InitChunk {
     }
 }
 
-impl_visitor!(InitChunk, handle_init_chunk);
-
 pub struct SetContiguousBlocks {
     pub x: i32,
     pub y: i16,
@@ -552,6 +534,7 @@ pub struct SetContiguousBlocks {
 }
 
 id!(SetContiguousBlocks, 51);
+impl_visitor!(SetContiguousBlocks, handle_set_contiguous_blocks);
 
 #[async_trait]
 impl InboundPacket for SetContiguousBlocks {
@@ -575,8 +558,6 @@ impl InboundPacket for SetContiguousBlocks {
     }
 }
 
-impl_visitor!(SetContiguousBlocks, handle_set_contiguous_blocks);
-
 pub struct SetBlocks {
     pub chunk_x: i32,
     pub chunk_z: i32,
@@ -586,6 +567,7 @@ pub struct SetBlocks {
 }
 
 id!(SetBlocks, 52);
+impl_visitor!(SetBlocks, handle_set_blocks);
 
 #[async_trait]
 impl InboundPacket for SetBlocks {
@@ -613,8 +595,6 @@ impl InboundPacket for SetBlocks {
     }
 }
 
-impl_visitor!(SetBlocks, handle_set_blocks);
-
 pub struct SetBlock {
     pub x: i32,
     pub y: u8,
@@ -623,6 +603,7 @@ pub struct SetBlock {
 }
 
 id!(SetBlock, 53);
+impl_visitor!(SetBlock, handle_set_block);
 
 #[async_trait]
 impl InboundPacket for SetBlock {
@@ -636,8 +617,6 @@ impl InboundPacket for SetBlock {
     }
 }
 
-impl_visitor!(SetBlock, handle_set_block);
-
 #[derive(Debug)]
 pub enum AfterRespawn {
     BedMissing,
@@ -646,6 +625,7 @@ pub enum AfterRespawn {
 }
 
 id!(AfterRespawn, 70);
+impl_visitor!(AfterRespawn, handle_after_respawn);
 
 #[async_trait]
 impl InboundPacket for AfterRespawn {
@@ -659,8 +639,6 @@ impl InboundPacket for AfterRespawn {
     }
 }
 
-impl_visitor!(AfterRespawn, handle_after_respawn);
-
 pub struct SetInventorySlot {
     pub inventory_id: i8,
     pub slot: i16,
@@ -668,6 +646,7 @@ pub struct SetInventorySlot {
 }
 
 id!(SetInventorySlot, 103);
+impl_visitor!(SetInventorySlot, handle_set_inventory_slot);
 
 #[async_trait]
 impl InboundPacket for SetInventorySlot {
@@ -687,14 +666,13 @@ impl InboundPacket for SetInventorySlot {
     }
 }
 
-impl_visitor!(SetInventorySlot, handle_set_inventory_slot);
-
 pub struct SetInventoryItems {
     pub inventory_id: i8,
     pub items: Vec<Option<(i16, i8, i16)>>,
 }
 
 id!(SetInventoryItems, 104);
+impl_visitor!(SetInventoryItems, handle_set_inventory_items);
 
 #[async_trait]
 impl InboundPacket for SetInventoryItems {
@@ -721,13 +699,12 @@ impl InboundPacket for SetInventoryItems {
     }
 }
 
-impl_visitor!(SetInventoryItems, handle_set_inventory_items);
-
 pub struct Disconnect {
     pub message: String,
 }
 
 id!(Disconnect, 255);
+impl_visitor!(Disconnect, handle_disconnect);
 
 #[async_trait]
 impl InboundPacket for Disconnect {
@@ -737,5 +714,3 @@ impl InboundPacket for Disconnect {
         })
     }
 }
-
-impl_visitor!(Disconnect, handle_disconnect);
