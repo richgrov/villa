@@ -424,16 +424,16 @@ impl InboundPacket for SetBlocks {
     async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
         let chunk_x = reader.read_i32().await?;
         let chunk_z = reader.read_i32().await?;
-        let num_blocks = reader.read_u16().await? as usize;
+        let num_blocks = reader.read_i16().await? as usize;
         let mut positions = Vec::with_capacity(num_blocks);
         for _ in 0..num_blocks {
             positions.push(reader.read_i16().await?);
         }
 
-        let mut types = Vec::with_capacity(num_blocks);
-        reader.read(&mut types).await?;
-        let mut data = Vec::with_capacity(num_blocks);
-        reader.read(&mut data).await?;
+        let mut types = vec![0; num_blocks];
+        reader.read_exact(&mut types).await?;
+        let mut data = vec![0; num_blocks];
+        reader.read_exact(&mut data).await?;
 
         Ok(SetBlocks {
             chunk_x,
