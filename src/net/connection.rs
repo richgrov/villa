@@ -61,6 +61,7 @@ impl Connection {
             Position,
             PosRot,
             SpawnItemEntity,
+            SpawnInsentientEntity,
             SpawnEntity,
             EntityVelocity,
             RemoveEntity,

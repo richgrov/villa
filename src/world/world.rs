@@ -215,6 +215,10 @@ impl PacketHandler for World {
         println!("Item on ground at {}, {}, {}: {}", packet.x, packet.y, packet.z, packet.item_id);
     }
 
+    fn handle_spawn_insentient_entity(&mut self, packet: &packets::SpawnInsentientEntity) {
+        println!("Entity {}: type {}, from {}", packet.id, packet.ty, packet.shooter);
+    }
+
     fn handle_spawn_entity(&mut self, packet: &packets::SpawnEntity) {
         println!("Entity id {}, type {}:\nAt {}, {}, {}", packet.id, packet.ty, packet.x, packet.y, packet.z);
     }

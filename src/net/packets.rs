@@ -29,6 +29,7 @@ pub trait PacketHandler {
     fn handle_pos(&mut self, packet: &Position);
     fn handle_pos_rot(&mut self, packet: &PosRot);
     fn handle_spawn_item_entity(&mut self, packet: &SpawnItemEntity);
+    fn handle_spawn_insentient_entity(&mut self, packet: &SpawnInsentientEntity);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
     fn handle_entity_velocity(&mut self, packet: &EntityVelocity);
     fn handle_remove_entity(&mut self, packet: &RemoveEntity);
@@ -268,6 +269,48 @@ impl InboundPacket for SpawnItemEntity {
 }
 
 impl_visitor!(SpawnItemEntity, handle_spawn_item_entity);
+
+pub struct SpawnInsentientEntity {
+    pub id: i32,
+    pub ty: u8,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub shooter: i32,
+    pub projectile_velocity: Option<(i16, i16, i16)>,
+}
+
+id!(SpawnInsentientEntity, 23);
+
+#[async_trait]
+impl InboundPacket for SpawnInsentientEntity {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        let id = reader.read_i32().await?;
+        let ty = reader.read_u8().await?;
+        let x = reader.read_i32().await?;
+        let y = reader.read_i32().await?;
+        let z = reader.read_i32().await?;
+        let shooter = reader.read_i32().await?;
+
+        Ok(SpawnInsentientEntity {
+            id,
+            ty,
+            x,
+            y,
+            z,
+            shooter,
+            projectile_velocity: {
+                if shooter > 0 {
+                    Some((reader.read_i16().await?, reader.read_i16().await?, reader.read_i16().await?))
+                } else {
+                    None
+                }
+            }
+        })
+    }
+}
+
+impl_visitor!(SpawnInsentientEntity, handle_spawn_insentient_entity);
 
 pub struct SpawnEntity {
     pub id: i32,
