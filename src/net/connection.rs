@@ -55,6 +55,7 @@ impl Connection {
         }
         Ok(match_packets!(
             Login,
+            Chat,
             SetTime,
             SetHealth,
             SpawnPos,

@@ -24,6 +24,7 @@ pub trait OutboundPacket: Packet {
 
 pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
+    fn handle_chat(&mut self, packet: &Chat);
     fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_set_health(&mut self, packet: &SetHealth);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
@@ -129,6 +130,23 @@ impl OutboundPacket for Handshake {
         Ok(data)
     }
 }
+
+pub struct Chat {
+    pub message: String,
+}
+
+id!(Chat, 3);
+
+#[async_trait]
+impl InboundPacket for Chat {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(Self {
+            message: read_str(reader, 119).await?,
+        })
+    }
+}
+
+impl_visitor!(Chat, handle_chat);
 
 pub struct SetTime {
     pub time: i64,

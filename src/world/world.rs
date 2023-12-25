@@ -191,6 +191,10 @@ impl PacketHandler for World {
         println!("Seed: {}, Dimension: {}", packet.seed, packet.dimension);
     }
 
+    fn handle_chat(&mut self, packet: &packets::Chat) {
+        println!("Chat: {}", packet.message);
+    }
+
     fn handle_set_time(&mut self, packet: &packets::SetTime) {
         println!("World time: {}", packet.time);
     }
