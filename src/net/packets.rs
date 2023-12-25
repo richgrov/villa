@@ -46,6 +46,7 @@ pub trait PacketHandler {
     fn handle_after_respawn(&mut self, packet: &AfterRespawn);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
+    fn handle_disconnect(&mut self, packet: &Disconnect);
 }
 
 pub trait PacketVisitor<H: PacketHandler> {
@@ -703,3 +704,20 @@ impl InboundPacket for SetInventoryItems {
 }
 
 impl_visitor!(SetInventoryItems, handle_set_inventory_items);
+
+pub struct Disconnect {
+    pub message: String,
+}
+
+id!(Disconnect, 255);
+
+#[async_trait]
+impl InboundPacket for Disconnect {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(Disconnect {
+            message: read_str(reader, 100).await?,
+        })
+    }
+}
+
+impl_visitor!(Disconnect, handle_disconnect);

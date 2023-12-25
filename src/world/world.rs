@@ -278,4 +278,8 @@ impl PacketHandler for World {
     fn handle_set_inventory_items(&mut self, packet: &packets::SetInventoryItems) {
         println!("Inventory {}: {} items", packet.inventory_id, packet.items.len());
     }
+
+    fn handle_disconnect(&mut self, packet: &packets::Disconnect) {
+        println!("Disconnected: {}", packet.message);
+    }
 }

@@ -77,6 +77,7 @@ impl Connection {
             AfterRespawn,
             SetInventorySlot,
             SetInventoryItems,
+            Disconnect,
         ))
     }
 }
