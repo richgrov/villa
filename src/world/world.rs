@@ -251,6 +251,10 @@ impl PacketHandler for World {
         println!("Init chunk at {}, {}: {}", packet.chunk_x, packet.chunk_z, packet.init);
     }
 
+    fn handle_set_contiguous_blocks(&mut self, packet: &packets::SetContiguousBlocks) {
+        println!("Changing from {}, {}, {}", packet.x, packet.y, packet.z);
+    }
+
     fn handle_set_blocks(&mut self, packet: &packets::SetBlocks) {
         println!("Changing {} blocks with offset {}, {}", packet.positions.len(), packet.chunk_x, packet.chunk_z);
     }

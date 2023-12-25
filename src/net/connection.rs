@@ -70,6 +70,7 @@ impl Connection {
             EntityPosRot,
             SetEntityHealth,
             InitChunk,
+            SetContiguousBlocks,
             SetBlocks,
             SetBlock,
             AfterRespawn,

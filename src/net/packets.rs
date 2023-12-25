@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use tokio::{io::{BufReader, AsyncReadExt}, net::tcp::OwnedReadHalf};
+use zune_inflate::DeflateDecoder;
 
 use crate::world::Block;
 
@@ -38,6 +39,7 @@ pub trait PacketHandler {
     fn handle_entity_pos_rot(&mut self, packet: &EntityPosRot);
     fn handle_set_entity_health(&mut self, packet: &SetEntityHealth);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
+    fn handle_set_contiguous_blocks(&mut self, packet: &SetContiguousBlocks);
     fn handle_set_blocks(&mut self, packet: &SetBlocks);
     fn handle_set_block(&mut self, packet: &SetBlock);
     fn handle_after_respawn(&mut self, packet: &AfterRespawn);
@@ -499,6 +501,42 @@ impl InboundPacket for InitChunk {
 }
 
 impl_visitor!(InitChunk, handle_init_chunk);
+
+pub struct SetContiguousBlocks {
+    pub x: i32,
+    pub y: i16,
+    pub z: i32,
+    pub x_size: u8,
+    pub y_size: u8,
+    pub z_size: u8,
+    pub data: Vec<u8>,
+}
+
+id!(SetContiguousBlocks, 51);
+
+#[async_trait]
+impl InboundPacket for SetContiguousBlocks {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SetContiguousBlocks {
+            x: reader.read_i32().await?,
+            y: reader.read_i16().await?,
+            z: reader.read_i32().await?,
+            x_size: reader.read_u8().await?,
+            y_size: reader.read_u8().await?,
+            z_size: reader.read_u8().await?,
+            data: {
+                let size = reader.read_i32().await?;
+                let mut data = vec![0; size as usize];
+                reader.read_exact(&mut data).await?;
+
+                let mut decoder = DeflateDecoder::new(&data);
+                decoder.decode_zlib().map_err(|e| Error::new(ErrorKind::InvalidData, e))?
+            },
+        })
+    }
+}
+
+impl_visitor!(SetContiguousBlocks, handle_set_contiguous_blocks);
 
 pub struct SetBlocks {
     pub chunk_x: i32,
