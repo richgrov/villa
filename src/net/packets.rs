@@ -38,6 +38,7 @@ pub trait PacketHandler {
     fn handle_entity_move_rot(&mut self, packet: &EntityMoveRot);
     fn handle_entity_pos_rot(&mut self, packet: &EntityPosRot);
     fn handle_set_entity_health(&mut self, packet: &SetEntityHealth);
+    fn handle_update_entity_attributes(&mut self, packet: &UpdateEntityAttributes);
     fn handle_init_chunk(&mut self, packet: &InitChunk);
     fn handle_set_contiguous_blocks(&mut self, packet: &SetContiguousBlocks);
     fn handle_set_blocks(&mut self, packet: &SetBlocks);
@@ -480,6 +481,25 @@ impl InboundPacket for SetEntityHealth {
 }
 
 impl_visitor!(SetEntityHealth, handle_set_entity_health);
+
+pub struct UpdateEntityAttributes {
+    pub id: i32,
+    pub attributes: HashMap<i8, EntityAttributeValue>,
+}
+
+id!(UpdateEntityAttributes, 40);
+
+#[async_trait]
+impl InboundPacket for UpdateEntityAttributes {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(UpdateEntityAttributes {
+            id: reader.read_i32().await?,
+            attributes: read_entity_attributes(reader).await?,
+        })
+    }
+}
+
+impl_visitor!(UpdateEntityAttributes, handle_update_entity_attributes);
 
 pub struct InitChunk {
     pub chunk_x: i32,

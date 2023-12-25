@@ -69,6 +69,7 @@ impl Connection {
             EntityMoveRot,
             EntityPosRot,
             SetEntityHealth,
+            UpdateEntityAttributes,
             InitChunk,
             SetContiguousBlocks,
             SetBlocks,

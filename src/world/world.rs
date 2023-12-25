@@ -263,6 +263,10 @@ impl PacketHandler for World {
         println!("Block at {}, {}, {}: {:?}", packet.x, packet.y, packet.z, packet.block);
     }
 
+    fn handle_update_entity_attributes(&mut self, packet: &packets::UpdateEntityAttributes) {
+        println!("Change {} attributes on entity {}", packet.attributes.len(), packet.id);
+    }
+
     fn handle_after_respawn(&mut self, packet: &packets::AfterRespawn) {
         println!("After respawn: {:?}", packet);
     }
