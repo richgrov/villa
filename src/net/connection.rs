@@ -58,6 +58,7 @@ impl Connection {
             SetTime,
             SetHealth,
             SpawnPos,
+            Position,
             PosRot,
             SpawnItemEntity,
             SpawnEntity,

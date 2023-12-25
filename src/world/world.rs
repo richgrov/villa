@@ -203,6 +203,10 @@ impl PacketHandler for World {
         println!("Spawn pos: {}, {}, {}", packet.x, packet.y, packet.z);
     }
 
+    fn handle_pos(&mut self, packet: &packets::Position) {
+        println!("Camera: {}, {}, {}", packet.x, packet.y, packet.z);
+    }
+
     fn handle_pos_rot(&mut self, packet: &packets::PosRot) {
         println!("Camera: {}, {}, {}, {}, {}", packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
     }

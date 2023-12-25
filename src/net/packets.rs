@@ -26,6 +26,7 @@ pub trait PacketHandler {
     fn handle_set_time(&mut self, packet: &SetTime);
     fn handle_set_health(&mut self, packet: &SetHealth);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
+    fn handle_pos(&mut self, packet: &Position);
     fn handle_pos_rot(&mut self, packet: &PosRot);
     fn handle_spawn_item_entity(&mut self, packet: &SpawnItemEntity);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
@@ -176,6 +177,31 @@ impl InboundPacket for SetHealth {
 }
 
 impl_visitor!(SetHealth, handle_set_health);
+
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+    pub stance: f64,
+    pub z: f64,
+    pub grounded: u8,
+}
+
+id!(Position, 11);
+
+#[async_trait]
+impl InboundPacket for Position {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(Position {
+            x: reader.read_f64().await?,
+            y: reader.read_f64().await?,
+            stance: reader.read_f64().await?,
+            z: reader.read_f64().await?,
+            grounded: reader.read_u8().await?,
+        })
+    }
+}
+
+impl_visitor!(Position, handle_pos);
 
 pub struct PosRot {
     pub x: f64,
