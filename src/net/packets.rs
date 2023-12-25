@@ -4,7 +4,7 @@ use tokio::{io::{BufReader, AsyncReadExt}, net::tcp::OwnedReadHalf};
 use crate::world::Block;
 
 use super::serialize::{write_str, read_str, EntityAttributeValue, read_entity_attributes};
-use std::{io::{Error, Write}, collections::HashMap};
+use std::{io::{Error, Write, ErrorKind}, collections::HashMap};
 
 pub const PROTOCOL_VERSION: i32 = 14;
 
@@ -36,6 +36,7 @@ pub trait PacketHandler {
     fn handle_init_chunk(&mut self, packet: &InitChunk);
     fn handle_set_blocks(&mut self, packet: &SetBlocks);
     fn handle_set_block(&mut self, packet: &SetBlock);
+    fn handle_after_respawn(&mut self, packet: &AfterRespawn);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
 }
@@ -442,6 +443,29 @@ impl InboundPacket for SetBlock {
 }
 
 impl_visitor!(SetBlock, handle_set_block);
+
+#[derive(Debug)]
+pub enum AfterRespawn {
+    BedMissing,
+    StartRaining,
+    StopRaining,
+}
+
+id!(AfterRespawn, 70);
+
+#[async_trait]
+impl InboundPacket for AfterRespawn {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(match reader.read_i8().await? {
+            0 => AfterRespawn::BedMissing,
+            1 => AfterRespawn::StartRaining,
+            2 => AfterRespawn::StopRaining,
+            other => return Err(Error::new(ErrorKind::InvalidInput, format!("{} is not a valid respawn action", other))),
+        })
+    }
+}
+
+impl_visitor!(AfterRespawn, handle_after_respawn);
 
 pub struct SetInventorySlot {
     pub inventory_id: i8,

@@ -68,6 +68,7 @@ impl Connection {
             InitChunk,
             SetBlocks,
             SetBlock,
+            AfterRespawn,
             SetInventorySlot,
             SetInventoryItems,
         ))

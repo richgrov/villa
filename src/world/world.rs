@@ -243,6 +243,10 @@ impl PacketHandler for World {
         println!("Block at {}, {}, {}: {:?}", packet.x, packet.y, packet.z, packet.block);
     }
 
+    fn handle_after_respawn(&mut self, packet: &packets::AfterRespawn) {
+        println!("After respawn: {:?}", packet);
+    }
+
     fn handle_set_inventory_slot(&mut self, packet: &packets::SetInventorySlot) {
         println!("Inventory {}, slot {}: {:?}", packet.inventory_id, packet.slot, packet.item.map(|i| i.0))
     }
