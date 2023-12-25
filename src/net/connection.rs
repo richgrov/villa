@@ -56,6 +56,7 @@ impl Connection {
         Ok(match_packets!(
             Login,
             SetTime,
+            SetHealth,
             SpawnPos,
             PosRot,
             SpawnItemEntity,

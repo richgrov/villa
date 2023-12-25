@@ -195,6 +195,10 @@ impl PacketHandler for World {
         println!("World time: {}", packet.time);
     }
 
+    fn handle_set_health(&mut self, packet: &packets::SetHealth) {
+        println!("Health changed to {}", packet.health);
+    }
+
     fn handle_spawn_pos(&mut self, packet: &packets::SpawnPos) {
         println!("Spawn pos: {}, {}, {}", packet.x, packet.y, packet.z);
     }
