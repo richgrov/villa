@@ -1,4 +1,5 @@
 mod gui;
+mod net;
 mod gpu;
 mod scene;
 mod uniforms;
@@ -52,8 +53,14 @@ impl App {
         }
     }
 
-    fn update(&mut self) {
-        self.current_scene.update(&self.gpu);
+    fn update(&mut self) -> bool {
+        match self.current_scene.update(&self.gpu) {
+            NextState::Continue => {},
+            NextState::ChangeScene(scene) => self.set_scene(scene),
+            NextState::Exit => return true,
+        }
+
+        false
     }
 
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -148,56 +155,57 @@ impl App {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
-    pollster::block_on(async move {
-        let event_loop = EventLoop::new();
-        let mut app = App::new(&event_loop).await;
+    let event_loop = EventLoop::new();
+    let mut app = App::new(&event_loop).await;
 
-        let mut time = std::time::Instant::now();
-        let mut frames = 0;
+    let mut time = std::time::Instant::now();
+    let mut frames = 0;
 
-        event_loop.run(move |event, _, control_flow| {
-            use winit::event::{Event, WindowEvent};
-            match event {
-                Event::RedrawRequested(_) => {
-                    frames += 1;
-                    let now = std::time::Instant::now();
-                    if now - time > std::time::Duration::from_secs(1) {
-                        time = now;
-                        println!("{}", frames);
-                        frames = 0;
-                    }
-
-                    app.update();
-
-                    match app.draw() {
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => app.gpu.reconfigure_surface(),
-                        Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                        Err(e) => eprintln!("{:?}", e),
-                        _ => {},
-                    }
-                },
-                Event::WindowEvent { window_id, event } if window_id == app.window.id() => match event {
-                    WindowEvent::Resized(size) => app.handle_resize(size),
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::CursorMoved { position, .. } => app.mouse_moved(position),
-                    WindowEvent::MouseInput { state, button, .. } => {
-                        let should_exit = app.handle_click(state, button);
-                        if should_exit {
-                            *control_flow = ControlFlow::Exit;
-                        }
-                    },
-                    WindowEvent::KeyboardInput { input, .. } => app.handle_key_input(input),
-                    _ => {},
-                },
-                Event::MainEventsCleared => {
-                    app.window.request_redraw();
+    event_loop.run(move |event, _, control_flow| {
+        use winit::event::{Event, WindowEvent};
+        match event {
+            Event::RedrawRequested(_) => {
+                frames += 1;
+                let now = std::time::Instant::now();
+                if now - time > std::time::Duration::from_secs(1) {
+                    time = now;
+                    println!("{}", frames);
+                    frames = 0;
                 }
+
+                if app.update() {
+                    *control_flow = ControlFlow::Exit;
+                }
+
+                match app.draw() {
+                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => app.gpu.reconfigure_surface(),
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    Err(e) => eprintln!("{:?}", e),
+                    _ => {},
+                }
+            },
+            Event::WindowEvent { window_id, event } if window_id == app.window.id() => match event {
+                WindowEvent::Resized(size) => app.handle_resize(size),
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
+                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::CursorMoved { position, .. } => app.mouse_moved(position),
+                WindowEvent::MouseInput { state, button, .. } => {
+                    let should_exit = app.handle_click(state, button);
+                    if should_exit {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                },
+                WindowEvent::KeyboardInput { input, .. } => app.handle_key_input(input),
                 _ => {},
+            },
+            Event::MainEventsCleared => {
+                app.window.request_redraw();
             }
-        });
+            _ => {},
+        }
     });
 }

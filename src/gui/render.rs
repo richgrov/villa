@@ -353,7 +353,7 @@ impl Gui {
         }
     }
 
-    pub fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, position: PhysicalPosition<f32>) -> Option<usize> {
+    pub fn handle_click(&mut self, _gpu: &GpuWrapper, state: ElementState, position: PhysicalPosition<f32>) -> Option<usize> {
         let mut clicked_index = None;
         for (i, button) in self.buttons.iter().enumerate() {
             if button.contains_point(position.x, position.y) {
