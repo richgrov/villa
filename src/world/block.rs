@@ -2,6 +2,12 @@
 pub enum Block {
     Air,
     Stone,
+    Grass,
+    Dirt,
+    Cobblestone,
+    Planks,
+    Log,
+    Leaves,
 }
 
 impl Block {
@@ -9,6 +15,12 @@ impl Block {
         let block = match ty {
             0 => Block::Air,
             1 => Block::Stone,
+            2 => Block::Grass,
+            3 => Block::Dirt,
+            4 => Block::Cobblestone,
+            5 => Block::Planks,
+            17 => Block::Log,
+            18 => Block::Leaves,
             _ => return None,
         };
         Some(block)
@@ -18,6 +30,12 @@ impl Block {
         match self {
             Block::Air => unreachable!(),
             Block::Stone => SolidBlockUv::all(1./16., 0.),
+            Block::Grass => SolidBlockUv::top_side_bottom(0., 0., 3./16., 0., 2./16., 0./16.),
+            Block::Dirt => SolidBlockUv::all(2./16., 0.),
+            Block::Cobblestone => SolidBlockUv::all(0., 1./16.),
+            Block::Planks => SolidBlockUv::all(4./16., 0.),
+            Block::Log => SolidBlockUv::top_side_bottom(5./16., 1./16., 4./16., 1./16., 5./16., 1./16.),
+            Block::Leaves => SolidBlockUv::all(4./16., 3./16.),
         }
     }
 }
@@ -49,6 +67,20 @@ impl SolidBlockUv {
                 neg_y: uv,
                 pos_z: uv,
                 neg_z: uv,
+            }
+        )
+    }
+
+    pub fn top_side_bottom(top_u: f32, top_v: f32, side_u: f32, side_v: f32, bottom_u: f32, bottom_v: f32) -> BlockModel {
+        let side_uv = (side_u, side_v, side_u + 1./16., side_v + 1./16.);
+        BlockModel::Solid(
+            SolidBlockUv {
+                pos_x: side_uv,
+                neg_x: side_uv,
+                pos_y: (top_u, top_v, top_u + 1./16., top_v + 1./16.),
+                neg_y: (bottom_u, bottom_v, bottom_u + 1./16., bottom_v + 1./16.),
+                pos_z: side_uv,
+                neg_z: side_uv,
             }
         )
     }

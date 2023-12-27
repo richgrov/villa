@@ -105,7 +105,12 @@ impl App {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.6,
+                            g: 0.75,
+                            b: 1.,
+                            a: 1.,
+                        }),
                         store: StoreOp::Store,
                     },
                 })],

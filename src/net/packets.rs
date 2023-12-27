@@ -5,7 +5,7 @@ use zune_inflate::DeflateDecoder;
 use crate::world::Block;
 
 use super::serialize::{write_str, read_str, EntityAttributeValue, read_entity_attributes};
-use std::{io::{Error, Write, ErrorKind}, collections::HashMap};
+use std::{io::{Error, ErrorKind}, collections::HashMap};
 
 pub const PROTOCOL_VERSION: i32 = 14;
 
@@ -19,17 +19,19 @@ pub trait InboundPacket: Packet {
 }
 
 pub trait OutboundPacket: Packet {
-    fn serialize(&self) -> Result<Vec<u8>, Error>;
+    fn serialize(&self) -> Vec<u8>;
 }
 
 pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
     fn handle_chat(&mut self, packet: &Chat);
     fn handle_set_time(&mut self, packet: &SetTime);
+    fn handle_set_entity_item(&mut self, packet:  &SetEntityItem);
     fn handle_set_health(&mut self, packet: &SetHealth);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
     fn handle_pos(&mut self, packet: &Position);
     fn handle_pos_rot(&mut self, packet: &PosRot);
+    fn handle_spawn_player(&mut self, packet: &SpawnPlayer);
     fn handle_spawn_item_entity(&mut self, packet: &SpawnItemEntity);
     fn handle_spawn_insentient_entity(&mut self, packet: &SpawnInsentientEntity);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
@@ -47,11 +49,12 @@ pub trait PacketHandler {
     fn handle_after_respawn(&mut self, packet: &AfterRespawn);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
+    fn handle_statistic(&mut self, packet: &Statistic);
     fn handle_disconnect(&mut self, packet: &Disconnect);
 }
 
-pub trait PacketVisitor<H: PacketHandler> {
-    fn visit(&self, handler: &mut H);
+pub trait PacketVisitor {
+    fn visit(&self, handler: &mut dyn PacketHandler);
 }
 
 macro_rules! id {
@@ -64,8 +67,8 @@ macro_rules! id {
 
 macro_rules! impl_visitor {
     ($ty:ty, $func:ident) => {
-        impl<H: PacketHandler> PacketVisitor<H> for $ty {
-            fn visit(&self, handler: &mut H) {
+        impl PacketVisitor for $ty {
+            fn visit(&self, handler: &mut dyn PacketHandler) {
                 handler.$func(self);
             }
         }
@@ -95,14 +98,14 @@ impl InboundPacket for Login {
 }
 
 impl OutboundPacket for Login {
-    fn serialize(&self) -> Result<Vec<u8>, Error> {
+    fn serialize(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(24);
         data.push(Self::ID);
-        let _ = data.write(&self.protocol_version.to_be_bytes());
-        write_str(&mut data, &self.username)?;
-        let _ = data.write(&self.seed.to_be_bytes());
-        let _ = data.write(&[self.dimension as u8]);
-        Ok(data)
+        data.extend_from_slice(&self.protocol_version.to_be_bytes());
+        write_str(&mut data, &self.username).unwrap();
+        data.extend_from_slice(&self.seed.to_be_bytes());
+        data.push(self.dimension as u8);
+        data
     }
 }
 
@@ -122,11 +125,11 @@ impl InboundPacket for Handshake {
 }
 
 impl OutboundPacket for Handshake {
-    fn serialize(&self) -> Result<Vec<u8>, Error> {
+    fn serialize(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(16);
         data.push(Self::ID);
-        write_str(&mut data, &self.username)?;
-        Ok(data)
+        write_str(&mut data, &self.username).unwrap();
+        data
     }
 }
 
@@ -158,6 +161,28 @@ impl InboundPacket for SetTime {
     async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
         Ok(SetTime {
             time: reader.read_i64().await?,
+        })
+    }
+}
+
+pub struct SetEntityItem {
+    pub entity_id: i32,
+    pub slot: i16,
+    pub item_id: i16,
+    pub item_data: i16,
+}
+
+id!(SetEntityItem, 5);
+impl_visitor!(SetEntityItem, handle_set_entity_item);
+
+#[async_trait]
+impl InboundPacket for SetEntityItem {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SetEntityItem {
+            entity_id: reader.read_i32().await?,
+            slot: reader.read_i16().await?,
+            item_id: reader.read_i16().await?,
+            item_data: reader.read_i16().await?,
         })
     }
 }
@@ -222,6 +247,19 @@ impl InboundPacket for Position {
     }
 }
 
+impl OutboundPacket for Position {
+    fn serialize(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(34);
+        data.push(Self::ID);
+        data.extend_from_slice(&self.x.to_be_bytes());
+        data.extend_from_slice(&self.y.to_be_bytes());
+        data.extend_from_slice(&self.stance.to_be_bytes());
+        data.extend_from_slice(&self.z.to_be_bytes());
+        data.extend_from_slice(&[self.grounded as u8]);
+        data
+    }
+}
+
 pub struct PosRot {
     pub x: f64,
     pub y: f64,
@@ -246,6 +284,51 @@ impl InboundPacket for PosRot {
             yaw: reader.read_f32().await?,
             pitch: reader.read_f32().await?,
             grounded: reader.read_u8().await? != 0,
+        })
+    }
+}
+
+impl OutboundPacket for PosRot {
+    fn serialize(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(34);
+        data.push(Self::ID);
+        data.extend_from_slice(&self.x.to_be_bytes());
+        data.extend_from_slice(&self.y.to_be_bytes());
+        data.extend_from_slice(&self.stance.to_be_bytes());
+        data.extend_from_slice(&self.z.to_be_bytes());
+        data.extend_from_slice(&self.yaw.to_be_bytes());
+        data.extend_from_slice(&self.pitch.to_be_bytes());
+        data.push(self.grounded as u8);
+        data
+    }
+}
+
+pub struct SpawnPlayer {
+    pub id: i32,
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub yaw: u8,
+    pub pitch: u8,
+    pub held_item: i16,
+}
+
+id!(SpawnPlayer, 20);
+impl_visitor!(SpawnPlayer, handle_spawn_player);
+
+#[async_trait]
+impl InboundPacket for SpawnPlayer {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SpawnPlayer {
+            id: reader.read_i32().await?,
+            name: read_str(reader, 16).await?,
+            x: reader.read_i32().await?,
+            y: reader.read_i32().await?,
+            z: reader.read_i32().await?,
+            yaw: reader.read_u8().await?,
+            pitch: reader.read_u8().await?,
+            held_item: reader.read_i16().await?,
         })
     }
 }
@@ -525,12 +608,12 @@ impl InboundPacket for InitChunk {
 
 pub struct SetContiguousBlocks {
     pub x: i32,
-    pub y: i16,
+    pub y: i32,
     pub z: i32,
-    pub x_size: u8,
-    pub y_size: u8,
-    pub z_size: u8,
-    pub data: Vec<u8>,
+    pub x_size: i32,
+    pub y_size: i32,
+    pub z_size: i32,
+    pub blocks: Vec<Block>,
 }
 
 id!(SetContiguousBlocks, 51);
@@ -539,21 +622,34 @@ impl_visitor!(SetContiguousBlocks, handle_set_contiguous_blocks);
 #[async_trait]
 impl InboundPacket for SetContiguousBlocks {
     async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
-        Ok(SetContiguousBlocks {
-            x: reader.read_i32().await?,
-            y: reader.read_i16().await?,
-            z: reader.read_i32().await?,
-            x_size: reader.read_u8().await?,
-            y_size: reader.read_u8().await?,
-            z_size: reader.read_u8().await?,
-            data: {
-                let size = reader.read_i32().await?;
-                let mut data = vec![0; size as usize];
-                reader.read_exact(&mut data).await?;
+        let x = reader.read_i32().await? as i32;
+        let y = reader.read_i16().await? as i32;
+        let z = reader.read_i32().await? as i32;
+        let x_size = reader.read_u8().await? as i32 + 1;
+        let y_size = reader.read_u8().await? as i32 + 1;
+        let z_size = reader.read_u8().await? as i32 + 1;
 
-                let mut decoder = DeflateDecoder::new(&data);
-                decoder.decode_zlib().map_err(|e| Error::new(ErrorKind::InvalidData, e))?
-            },
+        let size = reader.read_i32().await?;
+        let mut buf = vec![0; size as usize];
+        reader.read_exact(&mut buf).await?;
+
+        let mut decoder = DeflateDecoder::new(&buf);
+        let data = decoder.decode_zlib().map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+        let capacity = (x_size * y_size * z_size) as usize;
+        let mut blocks = Vec::with_capacity(capacity);
+        for i in 0..capacity {
+            blocks.push(Block::read(data[i], 0).unwrap_or(Block::Stone)); // TODO
+        }
+
+        Ok(SetContiguousBlocks {
+            x,
+            y,
+            z,
+            x_size,
+            y_size,
+            z_size,
+            blocks,
         })
     }
 }
@@ -561,7 +657,7 @@ impl InboundPacket for SetContiguousBlocks {
 pub struct SetBlocks {
     pub chunk_x: i32,
     pub chunk_z: i32,
-    pub positions: Vec<i16>,
+    pub positions: Vec<(u8, u8, u8)>,
     pub types: Vec<u8>,
     pub data: Vec<u8>,
 }
@@ -577,7 +673,11 @@ impl InboundPacket for SetBlocks {
         let num_blocks = reader.read_i16().await? as usize;
         let mut positions = Vec::with_capacity(num_blocks);
         for _ in 0..num_blocks {
-            positions.push(reader.read_i16().await?);
+            let encoded = reader.read_u16().await?;
+            let x = encoded >> 12;
+            let y = encoded & 0b11111111;
+            let z = (encoded >> 8) & 0b1111;
+            positions.push((x as u8, y as u8, z as u8));
         }
 
         let mut types = vec![0; num_blocks];
@@ -612,7 +712,7 @@ impl InboundPacket for SetBlock {
             x: reader.read_i32().await?,
             y: reader.read_u8().await?,
             z: reader.read_i32().await?,
-            block: Block::read(reader.read_u8().await?, reader.read_u8().await?).unwrap_or(Block::Air),
+            block: Block::read(reader.read_u8().await?, reader.read_u8().await?).unwrap_or(Block::Stone), // TODO
         })
     }
 }
@@ -698,6 +798,24 @@ impl InboundPacket for SetInventoryItems {
         })
     }
 }
+
+pub struct Statistic {
+    pub id: i32,
+    pub delta_value: i8,
+}
+
+#[async_trait]
+impl InboundPacket for Statistic {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(Statistic {
+            id: reader.read_i32().await?,
+            delta_value: reader.read_i8().await?,
+        })
+    }
+}
+
+id!(Statistic, 200);
+impl_visitor!(Statistic, handle_statistic);
 
 pub struct Disconnect {
     pub message: String,
