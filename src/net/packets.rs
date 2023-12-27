@@ -525,12 +525,12 @@ impl InboundPacket for InitChunk {
 
 pub struct SetContiguousBlocks {
     pub x: i32,
-    pub y: i16,
+    pub y: i32,
     pub z: i32,
-    pub x_size: u8,
-    pub y_size: u8,
-    pub z_size: u8,
-    pub data: Vec<u8>,
+    pub x_size: i32,
+    pub y_size: i32,
+    pub z_size: i32,
+    pub blocks: Vec<Block>,
 }
 
 id!(SetContiguousBlocks, 51);
@@ -539,21 +539,34 @@ impl_visitor!(SetContiguousBlocks, handle_set_contiguous_blocks);
 #[async_trait]
 impl InboundPacket for SetContiguousBlocks {
     async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
-        Ok(SetContiguousBlocks {
-            x: reader.read_i32().await?,
-            y: reader.read_i16().await?,
-            z: reader.read_i32().await?,
-            x_size: reader.read_u8().await?,
-            y_size: reader.read_u8().await?,
-            z_size: reader.read_u8().await?,
-            data: {
-                let size = reader.read_i32().await?;
-                let mut data = vec![0; size as usize];
-                reader.read_exact(&mut data).await?;
+        let x = reader.read_i32().await? as i32;
+        let y = reader.read_i16().await? as i32;
+        let z = reader.read_i32().await? as i32;
+        let x_size = reader.read_u8().await? as i32 + 1;
+        let y_size = reader.read_u8().await? as i32 + 1;
+        let z_size = reader.read_u8().await? as i32 + 1;
 
-                let mut decoder = DeflateDecoder::new(&data);
-                decoder.decode_zlib().map_err(|e| Error::new(ErrorKind::InvalidData, e))?
-            },
+        let size = reader.read_i32().await?;
+        let mut buf = vec![0; size as usize];
+        reader.read_exact(&mut buf).await?;
+
+        let mut decoder = DeflateDecoder::new(&buf);
+        let data = decoder.decode_zlib().map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+        let capacity = (x_size * y_size * z_size) as usize;
+        let mut blocks = Vec::with_capacity(capacity);
+        for i in 0..capacity {
+            blocks.push(Block::read(data[i], 0).unwrap_or(Block::Stone)); // TODO
+        }
+
+        Ok(SetContiguousBlocks {
+            x,
+            y,
+            z,
+            x_size,
+            y_size,
+            z_size,
+            blocks,
         })
     }
 }
@@ -561,7 +574,7 @@ impl InboundPacket for SetContiguousBlocks {
 pub struct SetBlocks {
     pub chunk_x: i32,
     pub chunk_z: i32,
-    pub positions: Vec<i16>,
+    pub positions: Vec<(u8, u8, u8)>,
     pub types: Vec<u8>,
     pub data: Vec<u8>,
 }
@@ -577,7 +590,11 @@ impl InboundPacket for SetBlocks {
         let num_blocks = reader.read_i16().await? as usize;
         let mut positions = Vec::with_capacity(num_blocks);
         for _ in 0..num_blocks {
-            positions.push(reader.read_i16().await?);
+            let encoded = reader.read_u16().await?;
+            let x = encoded >> 12;
+            let y = encoded & 0b11111111;
+            let z = (encoded >> 8) & 0b1111;
+            positions.push((x as u8, y as u8, z as u8));
         }
 
         let mut types = vec![0; num_blocks];
@@ -612,7 +629,7 @@ impl InboundPacket for SetBlock {
             x: reader.read_i32().await?,
             y: reader.read_u8().await?,
             z: reader.read_i32().await?,
-            block: Block::read(reader.read_u8().await?, reader.read_u8().await?).unwrap_or(Block::Air),
+            block: Block::read(reader.read_u8().await?, reader.read_u8().await?).unwrap_or(Block::Stone), // TODO
         })
     }
 }
