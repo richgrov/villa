@@ -88,7 +88,7 @@ impl World {
             camera_yaw: 0.,
             camera_x: 0.,
             camera_y: 0.,
-            camera_z: -1.,
+            camera_z: 0.,
         }
     }
 
