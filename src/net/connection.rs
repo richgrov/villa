@@ -82,7 +82,16 @@ impl Connection {
             ($($name:ident),* $(,)?) => {
                 match id {
                     $(
-                        packets::$name::ID => Box::new(packets::$name::deserialize(reader).await?),
+                        packets::$name::ID => {
+                            let packet = match packets::$name::deserialize(reader).await {
+                                Ok(p) => p,
+                                Err(e) => return Err(Error::new(
+                                    ErrorKind::InvalidInput,
+                                    format!("error deserializing packet id {}: {}", packets::$name::ID, e),
+                                )),
+                            };
+                            Box::new(packet)
+                        },
                     )*
                     other => return Err(Error::new(ErrorKind::InvalidInput, format!("unhandled packet id {}", other))),
                 }    
