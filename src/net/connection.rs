@@ -17,7 +17,7 @@ impl Connection {
 
         writer.write_all(&packets::Handshake {
             username: username.to_owned(),
-        }.serialize()?).await?;
+        }.serialize()).await?;
 
         let response_handshake: packets::Handshake = expect_packet(&mut reader).await?;
         if response_handshake.username != "-" {
@@ -32,7 +32,7 @@ impl Connection {
             username: username.to_owned(),
             seed: 0,
             dimension: 0,
-        }.serialize()?).await?;
+        }.serialize()).await?;
 
         Ok(Connection {
             reader,

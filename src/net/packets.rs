@@ -5,7 +5,7 @@ use zune_inflate::DeflateDecoder;
 use crate::world::Block;
 
 use super::serialize::{write_str, read_str, EntityAttributeValue, read_entity_attributes};
-use std::{io::{Error, Write, ErrorKind}, collections::HashMap};
+use std::{io::{Error, ErrorKind}, collections::HashMap};
 
 pub const PROTOCOL_VERSION: i32 = 14;
 
@@ -19,7 +19,7 @@ pub trait InboundPacket: Packet {
 }
 
 pub trait OutboundPacket: Packet {
-    fn serialize(&self) -> Result<Vec<u8>, Error>;
+    fn serialize(&self) -> Vec<u8>;
 }
 
 pub trait PacketHandler {
@@ -95,14 +95,14 @@ impl InboundPacket for Login {
 }
 
 impl OutboundPacket for Login {
-    fn serialize(&self) -> Result<Vec<u8>, Error> {
+    fn serialize(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(24);
         data.push(Self::ID);
-        let _ = data.write(&self.protocol_version.to_be_bytes());
-        write_str(&mut data, &self.username)?;
-        let _ = data.write(&self.seed.to_be_bytes());
-        let _ = data.write(&[self.dimension as u8]);
-        Ok(data)
+        data.extend_from_slice(&self.protocol_version.to_be_bytes());
+        write_str(&mut data, &self.username).unwrap();
+        data.extend_from_slice(&self.seed.to_be_bytes());
+        data.push(self.dimension as u8);
+        data
     }
 }
 
@@ -122,11 +122,11 @@ impl InboundPacket for Handshake {
 }
 
 impl OutboundPacket for Handshake {
-    fn serialize(&self) -> Result<Vec<u8>, Error> {
+    fn serialize(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(16);
         data.push(Self::ID);
-        write_str(&mut data, &self.username)?;
-        Ok(data)
+        write_str(&mut data, &self.username).unwrap();
+        data
     }
 }
 
