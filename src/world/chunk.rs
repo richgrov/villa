@@ -1,3 +1,5 @@
+use glam::{Mat4, Vec3};
+
 use crate::gpu::{Mesh, GpuWrapper};
 
 use super::block::{Block, BlockModel, SolidBlockUv};
@@ -5,39 +7,39 @@ use super::block::{Block, BlockModel, SolidBlockUv};
 pub struct Chunk {
     blocks: [Block; 16*16*128],
     mesh: Option<Mesh>,
-    x: i32,
-    z: i32,
+    mesh_outdated: bool,
+    pub uniform_offset: wgpu::DynamicOffset,
+    transform: Mat4,
 }
 
 impl Chunk {
-    pub fn new(x: i32, z: i32) -> Chunk {
+    pub fn new(x: i32, z: i32, uniform_offset: wgpu::DynamicOffset) -> Chunk {
         Chunk {
             blocks: [Block::Air; 16*16*128],
             mesh: None,
-            x,
-            z,
+            mesh_outdated: true,
+            uniform_offset,
+            transform: Mat4::from_translation(Vec3::new(x as f32 * 16., 0., z as f32 * 16.)),
         }
     }
 
     pub fn block(&self, x: usize, y: usize, z: usize) -> Block {
+        debug_assert!(x < 16, "x = {}", x);
+        debug_assert!(y < 256, "y = {}", y);
+        debug_assert!(z < 16, "z = {}", z);
         self.blocks[(y * 16 + z) * 16 + x]
     }
 
     pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: Block) {
+        debug_assert!(x < 16, "x = {}", x);
+        debug_assert!(y < 256, "y = {}", y);
+        debug_assert!(z < 16, "z = {}", z);
+        self.mesh_outdated = true;
         self.blocks[(y * 16 + z) * 16 + x] = block;
     }
 
     pub fn rebuild_mesh(&mut self, gpu: &GpuWrapper) {
-        for x in 0..16 {
-            for y in 0..128 {
-                for z in 0..16 {
-                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
-                        self.set_block(x, y, z, Block::Stone);
-                    }
-                }
-            }
-        }
-
+        self.mesh_outdated = false;
         let mut vertices = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
 
@@ -227,6 +229,14 @@ impl Chunk {
     pub fn mesh(&self) -> Option<&Mesh> {
         self.mesh.as_ref()
     }
+
+    pub fn needs_mesh_rebuild(&self) -> bool {
+        self.mesh_outdated
+    }
+
+    pub fn transform(&self) -> Mat4 {
+        self.transform
+    }
 }
 
 #[repr(C)]
@@ -242,4 +252,11 @@ impl crate::gpu::VertexAttribues for ChunkVertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
         &CHUNK_VERTEX_ATTRIBS
     }
+}
+
+pub fn to_chunk_pos(x: i32, z: i32) -> (i32, i32) {
+    (
+        (x as f32 / 16.).floor() as i32,
+        (z as f32 / 16.).floor() as i32,
+    )
 }
