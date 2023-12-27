@@ -130,40 +130,33 @@ impl World {
         }
     }
 
-    fn add_chunk(&mut self, chunk_x: i32, chunk_z: i32) {
-        let (cam_chunk_x, cam_chunk_z) = chunk::to_chunk_pos(self.camera_x as i32, self.camera_z as i32);
-        let is_viewable = (chunk_x - cam_chunk_x).abs() <= CHUNK_VIEW_RADIUS && (chunk_z - cam_chunk_z).abs() <= CHUNK_VIEW_RADIUS;
+    fn get_or_init_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> &mut Chunk {
+        self.chunks.entry((chunk_x, chunk_z)).or_insert_with(|| {
+            let (cam_chunk_x, cam_chunk_z) = chunk::to_chunk_pos(self.camera_x as i32, self.camera_z as i32);
+            let is_viewable = (chunk_x - cam_chunk_x).abs() <= CHUNK_VIEW_RADIUS && (chunk_z - cam_chunk_z).abs() <= CHUNK_VIEW_RADIUS;
 
-        let chunk = if is_viewable {
-            if self.rendered_chunks.len() >= self.rendered_chunks.capacity() {
-                panic!("tried to add viewable chunk at {}, {} when all rendered slots are taken", chunk_x, chunk_z);
+            if is_viewable {
+                if self.rendered_chunks.len() >= self.rendered_chunks.capacity() {
+                    panic!("tried to add viewable chunk at {}, {} when all rendered slots are taken", chunk_x, chunk_z);
+                }
+
+                let uniform_index = self.rendered_chunks.insert((chunk_x, chunk_z));
+                let uniform_offset = self.resources.chunk_uniform_layout.offset_of(uniform_index);
+                Chunk::new(chunk_x, chunk_z, uniform_offset, Some(uniform_index))
+            } else {
+                // ::MAX will cause a panic if this chunk is accidentally attempted to be
+                // rendered
+                Chunk::new(chunk_x, chunk_z, u32::MAX, None)
             }
-
-            let uniform_index = self.rendered_chunks.insert((chunk_x, chunk_z));
-            let uniform_offset = self.resources.chunk_uniform_layout.offset_of(uniform_index);
-            Chunk::new(chunk_x, chunk_z, uniform_offset)
-        } else {
-            // ::MAX values will cause a panic if this chunk is accidentally attempted to be
-            // rendered
-            Chunk::new(chunk_x, chunk_z, u32::MAX)
-        };
-
-        self.chunks.insert((chunk_x, chunk_z), chunk);
+        })
     }
 
     fn set_block(&mut self, x: i32, y: i32, z: i32, block: Block) {
         let chunk_pos = chunk::to_chunk_pos(x, z);
-        let chunk_world_x = chunk_pos.0 * 16;
-        let chunk_world_z = chunk_pos.1 * 16;
-        let chunk = match self.chunks.get_mut(&chunk_pos) {
-            Some(c) => c,
-            None => {
-                eprintln!("tried to set block at {}, {}, {} in uninitialized chunk", x, y, z);
-                return
-            }
-        };
+        let chunk = self.get_or_init_chunk(chunk_pos.0, chunk_pos.1);
 
-        chunk.set_block((x - chunk_world_x) as usize, y as usize, (z - chunk_world_z) as usize, block);
+        let (relative_x, relative_z) = chunk::world_to_chunk_relative(x, z);
+        chunk.set_block(relative_x as usize, y as usize, relative_z as usize, block);
     }
 
     fn process_packets(&mut self) {
@@ -360,18 +353,43 @@ impl PacketHandler for World {
 
     fn handle_init_chunk(&mut self, packet: &packets::InitChunk) {
         if packet.init {
-            self.add_chunk(packet.chunk_x, packet.chunk_z);
-        } else {
-            self.chunks.remove(&(packet.chunk_x, packet.chunk_z));
+            return
+        }
+
+        if let Some(chunk) = self.chunks.remove(&(packet.chunk_x, packet.chunk_z)) {
+            if let Some(index) = chunk.uniform_index {
+                self.rendered_chunks.remove(index);
+            }
         }
     }
 
     fn handle_set_contiguous_blocks(&mut self, packet: &packets::SetContiguousBlocks) {
+        let start_chunk_pos = chunk::to_chunk_pos(packet.x, packet.z);
+        let end_chunk_pos = chunk::to_chunk_pos(packet.x + packet.x_size - 1, packet.z + packet.z_size - 1);
+
+        // The Notchian server should never set contiguous blocks between chunk boundaries, but the
+        // protocol allows for modified servers to potentially do it. We fall back an a
+        // non-optimized algorithm in case of this
+        if start_chunk_pos != end_chunk_pos {
+            let mut index = 0;
+            for x in 0..packet.x_size {
+                for z in 0..packet.z_size {
+                    for y in 0..packet.y_size {
+                        self.set_block(packet.x + x, packet.y + y, packet.z + z, packet.blocks[index]);
+                        index += 1;
+                    }
+                }
+            }
+            return
+        }
+
+        let chunk = self.get_or_init_chunk(start_chunk_pos.0, start_chunk_pos.1);
+        let (x_offset, z_offset) = chunk::world_to_chunk_relative(packet.x, packet.z);
         let mut index = 0;
         for x in 0..packet.x_size {
             for z in 0..packet.z_size {
                 for y in 0..packet.y_size {
-                    self.set_block(packet.x + x, packet.y + y, packet.z + z, packet.blocks[index]);
+                    chunk.set_block((x + x_offset) as usize, y as usize, (z + z_offset) as usize, packet.blocks[index]);
                     index += 1;
                 }
             }
@@ -379,10 +397,7 @@ impl PacketHandler for World {
     }
 
     fn handle_set_blocks(&mut self, packet: &packets::SetBlocks) {
-        let Some(chunk) = self.chunks.get_mut(&(packet.chunk_x, packet.chunk_z)) else {
-            eprintln!("Can't set blocks at non-existent chunk {}, {}", packet.chunk_x, packet.chunk_z);
-            return
-        };
+        let chunk = self.get_or_init_chunk(packet.chunk_x, packet.chunk_z);
 
         for (i, (x, y, z)) in packet.positions.iter().enumerate() {
             let ty = packet.types[i];

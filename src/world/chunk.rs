@@ -9,16 +9,18 @@ pub struct Chunk {
     mesh: Option<Mesh>,
     mesh_outdated: bool,
     pub uniform_offset: wgpu::DynamicOffset,
+    pub uniform_index: Option<usize>,
     transform: Mat4,
 }
 
 impl Chunk {
-    pub fn new(x: i32, z: i32, uniform_offset: wgpu::DynamicOffset) -> Chunk {
+    pub fn new(x: i32, z: i32, uniform_offset: wgpu::DynamicOffset, uniform_index: Option<usize>) -> Chunk {
         Chunk {
             blocks: [Block::Air; 16*16*128],
             mesh: None,
             mesh_outdated: true,
             uniform_offset,
+            uniform_index,
             transform: Mat4::from_translation(Vec3::new(x as f32 * 16., 0., z as f32 * 16.)),
         }
     }
@@ -258,5 +260,12 @@ pub fn to_chunk_pos(x: i32, z: i32) -> (i32, i32) {
     (
         (x as f32 / 16.).floor() as i32,
         (z as f32 / 16.).floor() as i32,
+    )
+}
+
+pub fn world_to_chunk_relative(x: i32, z: i32) -> (i32, i32) {
+    (
+        (16 + (x%16)) % 16,
+        (16 + (z%16)) % 16,
     )
 }
