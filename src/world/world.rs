@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use glam::{Mat4, Vec3};
-use tokio::sync::mpsc;
 use wgpu::{RenderPipeline, BindGroup};
 use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton, KeyboardInput}};
 
@@ -52,7 +51,8 @@ pub struct World {
     chunk_uniforms: UniformStorage,
     last_cursor_position: Option<PhysicalPosition<f32>>,
     projection: Mat4,
-    inbound_packets_rx: mpsc::Receiver<Box<dyn PacketVisitor<World> + Send>>,
+    connection: Connection,
+    disconnected: bool,
 
     forward_input: f32,
     left_input: f32,
@@ -66,27 +66,10 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(gpu: &GpuWrapper, resources: Rc<WorldResources>, mut connection: Connection) -> World {
+    pub fn new(gpu: &GpuWrapper, resources: Rc<WorldResources>, connection: Connection) -> World {
         let chunk_uniforms = UniformStorage::new(gpu, "Chunk Uniforms", &[
             (&resources.chunk_uniform_layout, 1, "Chunk Bindings"),
         ]);
-
-        let (in_tx, in_rx) = mpsc::channel(24);
-        tokio::spawn(async move {
-            loop {
-                let packet = match connection.read_next_packet::<World>().await {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("error reading next packet: {}", e);
-                        break
-                    },
-                };
-                
-                if let Err(e) = in_tx.send(packet).await {
-                    eprintln!("failed to queue incoming packet: {}", e);
-                }
-            }
-        });
 
         World {
             chunk: Chunk::new(0, 0),
@@ -94,7 +77,8 @@ impl World {
             chunk_uniforms,
             last_cursor_position: None,
             projection: Mat4::ZERO,
-            inbound_packets_rx: in_rx,
+            connection,
+            disconnected: false,
 
             forward_input: 0.,
             left_input: 0.,
@@ -116,6 +100,32 @@ impl World {
 
         self.chunk_uniforms.set_element(0, 0, (self.projection * view * model).to_cols_array());
         self.chunk_uniforms.update(gpu);
+    }
+
+    fn process_packets(&mut self) {
+        if self.disconnected {
+            return
+        }
+
+        while let Some(packet) = self.connection.try_recv() {
+            match packet {
+                Ok(p) => p.visit(self),
+                Err(e) => {
+                    eprintln!("connection error: {}", e);
+                    self.disconnected = true;
+                }
+            }
+        }
+    }
+
+    fn queue_packet<P: OutboundPacket>(&self, packet: &P) {
+        if self.disconnected {
+            return
+        }
+
+        if !self.connection.queue_packet(packet) {
+            eprintln!("packet queue is full!");
+        }
     }
 }
 
@@ -156,12 +166,7 @@ impl Scene for World {
     }
 
     fn update(&mut self, gpu: &GpuWrapper) -> NextState {
-        loop {
-            match self.inbound_packets_rx.try_recv() {
-                Ok(p) => p.visit(self),
-                _ => break,
-            }
-        }
+        self.process_packets();
 
         self.camera_x -= self.camera_yaw.sin() * self.forward_input * MOVE_SPEED;
         self.camera_z += self.camera_yaw.cos() * self.forward_input * MOVE_SPEED;

@@ -50,8 +50,8 @@ pub trait PacketHandler {
     fn handle_disconnect(&mut self, packet: &Disconnect);
 }
 
-pub trait PacketVisitor<H: PacketHandler> {
-    fn visit(&self, handler: &mut H);
+pub trait PacketVisitor {
+    fn visit(&self, handler: &mut dyn PacketHandler);
 }
 
 macro_rules! id {
@@ -64,8 +64,8 @@ macro_rules! id {
 
 macro_rules! impl_visitor {
     ($ty:ty, $func:ident) => {
-        impl<H: PacketHandler> PacketVisitor<H> for $ty {
-            fn visit(&self, handler: &mut H) {
+        impl PacketVisitor for $ty {
+            fn visit(&self, handler: &mut dyn PacketHandler) {
                 handler.$func(self);
             }
         }
