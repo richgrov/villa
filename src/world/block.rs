@@ -2,6 +2,8 @@
 pub enum Block {
     Air,
     Stone,
+    Grass,
+    Dirt,
 }
 
 impl Block {
@@ -9,6 +11,7 @@ impl Block {
         let block = match ty {
             0 => Block::Air,
             1 => Block::Stone,
+            3 => Block::Dirt,
             _ => return None,
         };
         Some(block)
@@ -18,6 +21,8 @@ impl Block {
         match self {
             Block::Air => unreachable!(),
             Block::Stone => SolidBlockUv::all(1./16., 0.),
+            Block::Grass => unreachable!(),
+            Block::Dirt => SolidBlockUv::all(2./16., 0.),
         }
     }
 }
