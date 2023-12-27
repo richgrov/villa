@@ -222,6 +222,19 @@ impl InboundPacket for Position {
     }
 }
 
+impl OutboundPacket for Position {
+    fn serialize(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(34);
+        data.push(Self::ID);
+        data.extend_from_slice(&self.x.to_be_bytes());
+        data.extend_from_slice(&self.y.to_be_bytes());
+        data.extend_from_slice(&self.stance.to_be_bytes());
+        data.extend_from_slice(&self.z.to_be_bytes());
+        data.extend_from_slice(&[self.grounded as u8]);
+        data
+    }
+}
+
 pub struct PosRot {
     pub x: f64,
     pub y: f64,
@@ -247,6 +260,21 @@ impl InboundPacket for PosRot {
             pitch: reader.read_f32().await?,
             grounded: reader.read_u8().await? != 0,
         })
+    }
+}
+
+impl OutboundPacket for PosRot {
+    fn serialize(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(34);
+        data.push(Self::ID);
+        data.extend_from_slice(&self.x.to_be_bytes());
+        data.extend_from_slice(&self.y.to_be_bytes());
+        data.extend_from_slice(&self.stance.to_be_bytes());
+        data.extend_from_slice(&self.z.to_be_bytes());
+        data.extend_from_slice(&self.yaw.to_be_bytes());
+        data.extend_from_slice(&self.pitch.to_be_bytes());
+        data.push(self.grounded as u8);
+        data
     }
 }
 

@@ -18,6 +18,7 @@ const KEY_D: u32 = 32;
 const KEY_SHIFT: u32 = 42;
 const KEY_SPACE: u32 = 57;
 
+const PLAYER_EYE_HEIGHT: f64 = 1.62;
 pub struct WorldResources {
     chunk_uniform_layout: UniformSpec,
     pipeline: RenderPipeline,
@@ -63,6 +64,7 @@ pub struct World {
     camera_x: f32,
     camera_y: f32,
     camera_z: f32,
+    position_initialized: bool,
 }
 
 impl World {
@@ -89,6 +91,7 @@ impl World {
             camera_x: 0.,
             camera_y: 0.,
             camera_z: 0.,
+            position_initialized: false,
         }
     }
 
@@ -177,6 +180,19 @@ impl Scene for World {
         self.camera_y += 0.1 * self.up_input;
 
         self.update_position(gpu);
+
+        if self.position_initialized {
+            self.queue_packet(&packets::PosRot {
+                x: self.camera_x as f64,
+                y: self.camera_y as f64,
+                z: self.camera_z as f64,
+                stance: self.camera_y as f64 + PLAYER_EYE_HEIGHT,
+                yaw: self.camera_yaw,
+                pitch: self.camera_pitch,
+                grounded: true,
+            });
+        }
+
         NextState::Continue
     }
 
@@ -213,11 +229,19 @@ impl PacketHandler for World {
     }
 
     fn handle_pos(&mut self, packet: &packets::Position) {
-        println!("Camera: {}, {}, {}", packet.x, packet.y, packet.z);
+        self.camera_x = packet.x as f32;
+        self.camera_y = (packet.y - PLAYER_EYE_HEIGHT) as f32;
+        self.camera_z = packet.z as f32;
+        self.queue_packet(packet);
+        self.position_initialized = true;
     }
 
     fn handle_pos_rot(&mut self, packet: &packets::PosRot) {
-        println!("Camera: {}, {}, {}, {}, {}", packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
+        self.camera_x = packet.x as f32;
+        self.camera_y = (packet.y - PLAYER_EYE_HEIGHT) as f32;
+        self.camera_z = packet.z as f32;
+        self.queue_packet(packet);
+        self.position_initialized = true;
     }
 
     fn handle_spawn_item_entity(&mut self, packet: &packets::SpawnItemEntity) {
