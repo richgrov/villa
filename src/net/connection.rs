@@ -92,10 +92,12 @@ impl Connection {
             Login,
             Chat,
             SetTime,
+            SetEntityItem,
             SetHealth,
             SpawnPos,
             Position,
             PosRot,
+            SpawnPlayer,
             SpawnItemEntity,
             SpawnInsentientEntity,
             SpawnEntity,
@@ -113,6 +115,7 @@ impl Connection {
             AfterRespawn,
             SetInventorySlot,
             SetInventoryItems,
+            Statistic,
             Disconnect,
         ))
     }

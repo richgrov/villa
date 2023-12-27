@@ -289,6 +289,9 @@ impl PacketHandler for World {
         println!("World time: {}", packet.time);
     }
 
+    fn handle_set_entity_item(&mut self, _packet:  &packets::SetEntityItem) {
+    }
+
     fn handle_set_health(&mut self, packet: &packets::SetHealth) {
         println!("Health changed to {}", packet.health);
     }
@@ -313,6 +316,10 @@ impl PacketHandler for World {
         self.update_viewable_chunks();
         self.queue_packet(packet);
         self.position_initialized = true;
+    }
+
+    fn handle_spawn_player(&mut self, packet: &packets::SpawnPlayer) {
+        println!("Player {} at {}, {}, {}", packet.name, packet.x, packet.y, packet.z);
     }
 
     fn handle_spawn_item_entity(&mut self, packet: &packets::SpawnItemEntity) {
@@ -403,6 +410,9 @@ impl PacketHandler for World {
 
     fn handle_set_inventory_items(&mut self, packet: &packets::SetInventoryItems) {
         println!("Inventory {}: {} items", packet.inventory_id, packet.items.len());
+    }
+
+    fn handle_statistic(&mut self, _packet: &packets::Statistic) {
     }
 
     fn handle_disconnect(&mut self, packet: &packets::Disconnect) {

@@ -26,10 +26,12 @@ pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
     fn handle_chat(&mut self, packet: &Chat);
     fn handle_set_time(&mut self, packet: &SetTime);
+    fn handle_set_entity_item(&mut self, packet:  &SetEntityItem);
     fn handle_set_health(&mut self, packet: &SetHealth);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
     fn handle_pos(&mut self, packet: &Position);
     fn handle_pos_rot(&mut self, packet: &PosRot);
+    fn handle_spawn_player(&mut self, packet: &SpawnPlayer);
     fn handle_spawn_item_entity(&mut self, packet: &SpawnItemEntity);
     fn handle_spawn_insentient_entity(&mut self, packet: &SpawnInsentientEntity);
     fn handle_spawn_entity(&mut self, packet: &SpawnEntity);
@@ -47,6 +49,7 @@ pub trait PacketHandler {
     fn handle_after_respawn(&mut self, packet: &AfterRespawn);
     fn handle_set_inventory_slot(&mut self, packet: &SetInventorySlot);
     fn handle_set_inventory_items(&mut self, packet: &SetInventoryItems);
+    fn handle_statistic(&mut self, packet: &Statistic);
     fn handle_disconnect(&mut self, packet: &Disconnect);
 }
 
@@ -158,6 +161,28 @@ impl InboundPacket for SetTime {
     async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
         Ok(SetTime {
             time: reader.read_i64().await?,
+        })
+    }
+}
+
+pub struct SetEntityItem {
+    pub entity_id: i32,
+    pub slot: i16,
+    pub item_id: i16,
+    pub item_data: i16,
+}
+
+id!(SetEntityItem, 5);
+impl_visitor!(SetEntityItem, handle_set_entity_item);
+
+#[async_trait]
+impl InboundPacket for SetEntityItem {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SetEntityItem {
+            entity_id: reader.read_i32().await?,
+            slot: reader.read_i16().await?,
+            item_id: reader.read_i16().await?,
+            item_data: reader.read_i16().await?,
         })
     }
 }
@@ -275,6 +300,36 @@ impl OutboundPacket for PosRot {
         data.extend_from_slice(&self.pitch.to_be_bytes());
         data.push(self.grounded as u8);
         data
+    }
+}
+
+pub struct SpawnPlayer {
+    pub id: i32,
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub yaw: u8,
+    pub pitch: u8,
+    pub held_item: i16,
+}
+
+id!(SpawnPlayer, 20);
+impl_visitor!(SpawnPlayer, handle_spawn_player);
+
+#[async_trait]
+impl InboundPacket for SpawnPlayer {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(SpawnPlayer {
+            id: reader.read_i32().await?,
+            name: read_str(reader, 16).await?,
+            x: reader.read_i32().await?,
+            y: reader.read_i32().await?,
+            z: reader.read_i32().await?,
+            yaw: reader.read_u8().await?,
+            pitch: reader.read_u8().await?,
+            held_item: reader.read_i16().await?,
+        })
     }
 }
 
@@ -743,6 +798,24 @@ impl InboundPacket for SetInventoryItems {
         })
     }
 }
+
+pub struct Statistic {
+    pub id: i32,
+    pub delta_value: i8,
+}
+
+#[async_trait]
+impl InboundPacket for Statistic {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+        Ok(Statistic {
+            id: reader.read_i32().await?,
+            delta_value: reader.read_i8().await?,
+        })
+    }
+}
+
+id!(Statistic, 200);
+impl_visitor!(Statistic, handle_statistic);
 
 pub struct Disconnect {
     pub message: String,
