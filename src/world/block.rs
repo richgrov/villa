@@ -6,6 +6,8 @@ pub enum Block {
     Dirt,
     Cobblestone,
     Planks,
+    Log,
+    Leaves,
 }
 
 impl Block {
@@ -17,6 +19,8 @@ impl Block {
             3 => Block::Dirt,
             4 => Block::Cobblestone,
             5 => Block::Planks,
+            17 => Block::Log,
+            18 => Block::Leaves,
             _ => return None,
         };
         Some(block)
@@ -30,6 +34,8 @@ impl Block {
             Block::Dirt => SolidBlockUv::all(2./16., 0.),
             Block::Cobblestone => SolidBlockUv::all(0., 1./16.),
             Block::Planks => SolidBlockUv::all(4./16., 0.),
+            Block::Log => SolidBlockUv::top_side_bottom(5./16., 1./16., 4./16., 1./16., 5./16., 1./16.),
+            Block::Leaves => SolidBlockUv::all(4./16., 3./16.),
         }
     }
 }
