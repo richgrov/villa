@@ -319,36 +319,28 @@ impl PacketHandler for World {
         println!("Item on ground at {}, {}, {}: {}", packet.x, packet.y, packet.z, packet.item_id);
     }
 
-    fn handle_spawn_insentient_entity(&mut self, packet: &packets::SpawnInsentientEntity) {
-        //println!("Entity {}: type {}, from {}", packet.id, packet.ty, packet.shooter);
+    fn handle_spawn_insentient_entity(&mut self, _packet: &packets::SpawnInsentientEntity) {
     }
 
-    fn handle_spawn_entity(&mut self, packet: &packets::SpawnEntity) {
-        //println!("Entity id {}, type {}:\nAt {}, {}, {}", packet.id, packet.ty, packet.x, packet.y, packet.z);
+    fn handle_spawn_entity(&mut self, _packet: &packets::SpawnEntity) {
     }
 
-    fn handle_entity_velocity(&mut self, packet: &packets::EntityVelocity) {
-        //println!("Entity {} velocity: {}, {}, {}", packet.id, packet.x, packet.y, packet.z);
+    fn handle_entity_velocity(&mut self, _packet: &packets::EntityVelocity) {
     }
 
-    fn handle_remove_entity(&mut self, packet: &packets::RemoveEntity) {
-        //println!("Removing entity {}", packet.id);
+    fn handle_remove_entity(&mut self, _packet: &packets::RemoveEntity) {
     }
 
-    fn handle_move_entity(&mut self, packet: &packets::MoveEntity) {
-        //println!("Move entity {}: {}, {}, {}", packet.id, packet.x, packet.y, packet.z);
+    fn handle_move_entity(&mut self, _packet: &packets::MoveEntity) {
     }
 
-    fn handle_entity_move_rot(&mut self, packet: &packets::EntityMoveRot) {
-        //println!("Move entity {}: {}, {}, {}, {}, {}", packet.id, packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
+    fn handle_entity_move_rot(&mut self, _packet: &packets::EntityMoveRot) {
     }
 
-    fn handle_entity_pos_rot(&mut self, packet: &packets::EntityPosRot) {
-        //println!("Entity {} now at {}, {}, {}, {}, {}", packet.id, packet.x, packet.y, packet.z, packet.yaw, packet.pitch);
+    fn handle_entity_pos_rot(&mut self, _packet: &packets::EntityPosRot) {
     }
 
-    fn handle_set_entity_health(&mut self, packet: &packets::SetEntityHealth) {
-        //println!("Health of {}: {}", packet.id, packet.health);
+    fn handle_set_entity_health(&mut self, _packet: &packets::SetEntityHealth) {
     }
 
     fn handle_init_chunk(&mut self, packet: &packets::InitChunk) {
