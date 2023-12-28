@@ -1,11 +1,11 @@
 use glam::{Mat4, Vec3};
 
-use crate::gpu::{Mesh, GpuWrapper};
+use crate::gpu::{GpuWrapper, Mesh};
 
 use super::block::{Block, BlockModel, SolidBlockUv};
 
 pub struct Chunk {
-    blocks: [Block; 16*16*128],
+    blocks: [Block; 16 * 16 * 128],
     mesh: Option<Mesh>,
     mesh_outdated: bool,
     pub uniform_offset: wgpu::DynamicOffset,
@@ -14,9 +14,14 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(x: i32, z: i32, uniform_offset: wgpu::DynamicOffset, uniform_index: Option<usize>) -> Chunk {
+    pub fn new(
+        x: i32,
+        z: i32,
+        uniform_offset: wgpu::DynamicOffset,
+        uniform_index: Option<usize>,
+    ) -> Chunk {
         Chunk {
-            blocks: [Block::Air; 16*16*128],
+            blocks: [Block::Air; 16 * 16 * 128],
             mesh: None,
             mesh_outdated: true,
             uniform_offset,
@@ -50,12 +55,17 @@ impl Chunk {
                 for z in 0..16 {
                     let block = self.block(x, y, z);
                     if let Block::Air = block {
-                        continue
+                        continue;
                     }
 
                     match block.model() {
                         BlockModel::Solid(solid) => self.build_full_block_model(
-                            x, y, z, &mut vertices, &mut indices, &solid,
+                            x,
+                            y,
+                            z,
+                            &mut vertices,
+                            &mut indices,
+                            &solid,
                         ),
                     }
                 }
@@ -77,7 +87,7 @@ impl Chunk {
         let yf = y as f32;
         let zf = z as f32;
 
-        if x == 0 || self.block(x-1, y, z) == Block::Air {
+        if x == 0 || self.block(x - 1, y, z) == Block::Air {
             let (u, v, ue, ve) = solid.neg_x;
             let n = vertices.len() as u32;
             vertices.extend_from_slice(&[
@@ -99,10 +109,10 @@ impl Chunk {
                 },
             ]);
 
-            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+            indices.extend_from_slice(&[n, n + 1, n + 2, n + 2, n + 3, n]);
         }
 
-        if x == 15 || self.block(x+1, y, z) == Block::Air {
+        if x == 15 || self.block(x + 1, y, z) == Block::Air {
             let (u, v, ue, ve) = solid.pos_x;
             let n = vertices.len() as u32;
             vertices.extend_from_slice(&[
@@ -124,10 +134,10 @@ impl Chunk {
                 },
             ]);
 
-            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+            indices.extend_from_slice(&[n, n + 1, n + 2, n + 2, n + 3, n]);
         }
 
-        if y == 0 || self.block(x, y-1, z) == Block::Air {
+        if y == 0 || self.block(x, y - 1, z) == Block::Air {
             let (u, v, ue, ve) = solid.neg_y;
             let n = vertices.len() as u32;
             vertices.extend_from_slice(&[
@@ -149,10 +159,10 @@ impl Chunk {
                 },
             ]);
 
-            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+            indices.extend_from_slice(&[n, n + 1, n + 2, n + 2, n + 3, n]);
         }
 
-        if y == 127 || self.block(x, y+1, z) == Block::Air {
+        if y == 127 || self.block(x, y + 1, z) == Block::Air {
             let (u, v, ue, ve) = solid.pos_y;
             let n = vertices.len() as u32;
             vertices.extend_from_slice(&[
@@ -174,10 +184,10 @@ impl Chunk {
                 },
             ]);
 
-            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+            indices.extend_from_slice(&[n, n + 1, n + 2, n + 2, n + 3, n]);
         }
 
-        if z == 0 || self.block(x, y, z-1) == Block::Air {
+        if z == 0 || self.block(x, y, z - 1) == Block::Air {
             let (u, v, ue, ve) = solid.neg_z;
             let n = vertices.len() as u32;
             vertices.extend_from_slice(&[
@@ -199,10 +209,10 @@ impl Chunk {
                 },
             ]);
 
-            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+            indices.extend_from_slice(&[n, n + 1, n + 2, n + 2, n + 3, n]);
         }
 
-        if z == 15 || self.block(x, y, z+1) == Block::Air {
+        if z == 15 || self.block(x, y, z + 1) == Block::Air {
             let (u, v, ue, ve) = solid.pos_z;
             let n = vertices.len() as u32;
             vertices.extend_from_slice(&[
@@ -224,7 +234,7 @@ impl Chunk {
                 },
             ]);
 
-            indices.extend_from_slice(&[n, n+1, n+2, n+2, n+3, n]);
+            indices.extend_from_slice(&[n, n + 1, n + 2, n + 2, n + 3, n]);
         }
     }
 
@@ -248,7 +258,8 @@ pub struct ChunkVertex {
     pub uv: [f32; 2],
 }
 
-const CHUNK_VERTEX_ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
+const CHUNK_VERTEX_ATTRIBS: [wgpu::VertexAttribute; 2] =
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
 impl crate::gpu::VertexAttribues for ChunkVertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
@@ -264,8 +275,5 @@ pub fn to_chunk_pos(x: i32, z: i32) -> (i32, i32) {
 }
 
 pub fn world_to_chunk_relative(x: i32, z: i32) -> (i32, i32) {
-    (
-        (16 + (x%16)) % 16,
-        (16 + (z%16)) % 16,
-    )
+    ((16 + (x % 16)) % 16, (16 + (z % 16)) % 16)
 }

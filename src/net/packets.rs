@@ -1,11 +1,17 @@
 use async_trait::async_trait;
-use tokio::{io::{BufReader, AsyncReadExt}, net::tcp::OwnedReadHalf};
+use tokio::{
+    io::{AsyncReadExt, BufReader},
+    net::tcp::OwnedReadHalf,
+};
 use zune_inflate::DeflateDecoder;
 
 use crate::world::Block;
 
-use super::serialize::{write_str, read_str, EntityAttributeValue, read_entity_attributes};
-use std::{io::{Error, ErrorKind}, collections::HashMap};
+use super::serialize::{read_entity_attributes, read_str, write_str, EntityAttributeValue};
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+};
 
 pub const PROTOCOL_VERSION: i32 = 14;
 
@@ -15,7 +21,9 @@ pub trait Packet {
 
 #[async_trait]
 pub trait InboundPacket: Packet {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized;
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized;
 }
 
 pub trait OutboundPacket: Packet {
@@ -26,7 +34,7 @@ pub trait PacketHandler {
     fn handle_login(&mut self, packet: &Login);
     fn handle_chat(&mut self, packet: &Chat);
     fn handle_set_time(&mut self, packet: &SetTime);
-    fn handle_set_entity_item(&mut self, packet:  &SetEntityItem);
+    fn handle_set_entity_item(&mut self, packet: &SetEntityItem);
     fn handle_set_health(&mut self, packet: &SetHealth);
     fn handle_spawn_pos(&mut self, packet: &SpawnPos);
     fn handle_pos(&mut self, packet: &Position);
@@ -87,7 +95,10 @@ impl_visitor!(Login, handle_login);
 
 #[async_trait]
 impl InboundPacket for Login {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(Login {
             protocol_version: reader.read_i32().await?,
             username: read_str(reader, 16).await?,
@@ -117,7 +128,10 @@ id!(Handshake, 2);
 
 #[async_trait]
 impl InboundPacket for Handshake {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(Handshake {
             username: read_str(reader, 16).await?,
         })
@@ -142,7 +156,10 @@ impl_visitor!(Chat, handle_chat);
 
 #[async_trait]
 impl InboundPacket for Chat {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(Self {
             message: read_str(reader, 119).await?,
         })
@@ -158,7 +175,10 @@ impl_visitor!(SetTime, handle_set_time);
 
 #[async_trait]
 impl InboundPacket for SetTime {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SetTime {
             time: reader.read_i64().await?,
         })
@@ -177,7 +197,10 @@ impl_visitor!(SetEntityItem, handle_set_entity_item);
 
 #[async_trait]
 impl InboundPacket for SetEntityItem {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SetEntityItem {
             entity_id: reader.read_i32().await?,
             slot: reader.read_i16().await?,
@@ -198,7 +221,10 @@ impl_visitor!(SpawnPos, handle_spawn_pos);
 
 #[async_trait]
 impl InboundPacket for SpawnPos {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SpawnPos {
             x: reader.read_i32().await?,
             y: reader.read_i32().await?,
@@ -216,7 +242,10 @@ impl_visitor!(SetHealth, handle_set_health);
 
 #[async_trait]
 impl InboundPacket for SetHealth {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SetHealth {
             health: reader.read_i16().await?,
         })
@@ -236,7 +265,10 @@ impl_visitor!(Position, handle_pos);
 
 #[async_trait]
 impl InboundPacket for Position {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(Position {
             x: reader.read_f64().await?,
             y: reader.read_f64().await?,
@@ -275,7 +307,10 @@ impl_visitor!(PosRot, handle_pos_rot);
 
 #[async_trait]
 impl InboundPacket for PosRot {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(PosRot {
             x: reader.read_f64().await?,
             y: reader.read_f64().await?,
@@ -319,7 +354,10 @@ impl_visitor!(SpawnPlayer, handle_spawn_player);
 
 #[async_trait]
 impl InboundPacket for SpawnPlayer {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SpawnPlayer {
             id: reader.read_i32().await?,
             name: read_str(reader, 16).await?,
@@ -351,7 +389,10 @@ impl_visitor!(SpawnItemEntity, handle_spawn_item_entity);
 
 #[async_trait]
 impl InboundPacket for SpawnItemEntity {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SpawnItemEntity {
             entity_id: reader.read_i32().await?,
             item_id: reader.read_i16().await?,
@@ -382,7 +423,10 @@ impl_visitor!(SpawnInsentientEntity, handle_spawn_insentient_entity);
 
 #[async_trait]
 impl InboundPacket for SpawnInsentientEntity {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         let id = reader.read_i32().await?;
         let ty = reader.read_u8().await?;
         let x = reader.read_i32().await?;
@@ -399,11 +443,15 @@ impl InboundPacket for SpawnInsentientEntity {
             shooter,
             projectile_velocity: {
                 if shooter > 0 {
-                    Some((reader.read_i16().await?, reader.read_i16().await?, reader.read_i16().await?))
+                    Some((
+                        reader.read_i16().await?,
+                        reader.read_i16().await?,
+                        reader.read_i16().await?,
+                    ))
                 } else {
                     None
                 }
-            }
+            },
         })
     }
 }
@@ -424,7 +472,10 @@ impl_visitor!(SpawnEntity, handle_spawn_entity);
 
 #[async_trait]
 impl InboundPacket for SpawnEntity {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SpawnEntity {
             id: reader.read_i32().await?,
             ty: reader.read_i8().await?,
@@ -450,7 +501,10 @@ impl_visitor!(EntityVelocity, handle_entity_velocity);
 
 #[async_trait]
 impl InboundPacket for EntityVelocity {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(EntityVelocity {
             id: reader.read_i32().await?,
             x: reader.read_i16().await?,
@@ -469,7 +523,10 @@ impl_visitor!(RemoveEntity, handle_remove_entity);
 
 #[async_trait]
 impl InboundPacket for RemoveEntity {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(RemoveEntity {
             id: reader.read_i32().await?,
         })
@@ -488,7 +545,10 @@ impl_visitor!(MoveEntity, handle_move_entity);
 
 #[async_trait]
 impl InboundPacket for MoveEntity {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(MoveEntity {
             id: reader.read_i32().await?,
             x: reader.read_i8().await?,
@@ -512,7 +572,10 @@ impl_visitor!(EntityMoveRot, handle_entity_move_rot);
 
 #[async_trait]
 impl InboundPacket for EntityMoveRot {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(EntityMoveRot {
             id: reader.read_i32().await?,
             x: reader.read_i8().await?,
@@ -538,7 +601,10 @@ impl_visitor!(EntityPosRot, handle_entity_pos_rot);
 
 #[async_trait]
 impl InboundPacket for EntityPosRot {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(EntityPosRot {
             id: reader.read_i32().await?,
             x: reader.read_i32().await?,
@@ -560,7 +626,10 @@ impl_visitor!(SetEntityHealth, handle_set_entity_health);
 
 #[async_trait]
 impl InboundPacket for SetEntityHealth {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SetEntityHealth {
             id: reader.read_i32().await?,
             health: reader.read_i8().await?,
@@ -578,7 +647,10 @@ impl_visitor!(UpdateEntityAttributes, handle_update_entity_attributes);
 
 #[async_trait]
 impl InboundPacket for UpdateEntityAttributes {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(UpdateEntityAttributes {
             id: reader.read_i32().await?,
             attributes: read_entity_attributes(reader).await?,
@@ -597,7 +669,10 @@ impl_visitor!(InitChunk, handle_init_chunk);
 
 #[async_trait]
 impl InboundPacket for InitChunk {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(InitChunk {
             chunk_x: reader.read_i32().await?,
             chunk_z: reader.read_i32().await?,
@@ -621,7 +696,10 @@ impl_visitor!(SetContiguousBlocks, handle_set_contiguous_blocks);
 
 #[async_trait]
 impl InboundPacket for SetContiguousBlocks {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         let x = reader.read_i32().await? as i32;
         let y = reader.read_i16().await? as i32;
         let z = reader.read_i32().await? as i32;
@@ -634,7 +712,9 @@ impl InboundPacket for SetContiguousBlocks {
         reader.read_exact(&mut buf).await?;
 
         let mut decoder = DeflateDecoder::new(&buf);
-        let data = decoder.decode_zlib().map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+        let data = decoder
+            .decode_zlib()
+            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
         let capacity = (x_size * y_size * z_size) as usize;
         let mut blocks = Vec::with_capacity(capacity);
@@ -667,7 +747,10 @@ impl_visitor!(SetBlocks, handle_set_blocks);
 
 #[async_trait]
 impl InboundPacket for SetBlocks {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         let chunk_x = reader.read_i32().await?;
         let chunk_z = reader.read_i32().await?;
         let num_blocks = reader.read_i16().await? as usize;
@@ -707,12 +790,16 @@ impl_visitor!(SetBlock, handle_set_block);
 
 #[async_trait]
 impl InboundPacket for SetBlock {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SetBlock {
             x: reader.read_i32().await?,
             y: reader.read_u8().await?,
             z: reader.read_i32().await?,
-            block: Block::read(reader.read_u8().await?, reader.read_u8().await?).unwrap_or(Block::Stone), // TODO
+            block: Block::read(reader.read_u8().await?, reader.read_u8().await?)
+                .unwrap_or(Block::Stone), // TODO
         })
     }
 }
@@ -729,12 +816,20 @@ impl_visitor!(AfterRespawn, handle_after_respawn);
 
 #[async_trait]
 impl InboundPacket for AfterRespawn {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(match reader.read_i8().await? {
             0 => AfterRespawn::BedMissing,
             1 => AfterRespawn::StartRaining,
             2 => AfterRespawn::StopRaining,
-            other => return Err(Error::new(ErrorKind::InvalidInput, format!("{} is not a valid respawn action", other))),
+            other => {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("{} is not a valid respawn action", other),
+                ))
+            }
         })
     }
 }
@@ -750,7 +845,10 @@ impl_visitor!(SetInventorySlot, handle_set_inventory_slot);
 
 #[async_trait]
 impl InboundPacket for SetInventorySlot {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(SetInventorySlot {
             inventory_id: reader.read_i8().await?,
             slot: reader.read_i16().await?,
@@ -776,7 +874,10 @@ impl_visitor!(SetInventoryItems, handle_set_inventory_items);
 
 #[async_trait]
 impl InboundPacket for SetInventoryItems {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         let inventory_id = reader.read_i8().await?;
         let num_items = reader.read_i16().await?;
         let mut items = Vec::with_capacity(num_items as usize);
@@ -784,7 +885,7 @@ impl InboundPacket for SetInventoryItems {
             let id = reader.read_i16().await?;
             if id < 0 {
                 items.push(None);
-                continue
+                continue;
             }
 
             let count = reader.read_i8().await?;
@@ -806,7 +907,10 @@ pub struct Statistic {
 
 #[async_trait]
 impl InboundPacket for Statistic {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(Statistic {
             id: reader.read_i32().await?,
             delta_value: reader.read_i8().await?,
@@ -826,7 +930,10 @@ impl_visitor!(Disconnect, handle_disconnect);
 
 #[async_trait]
 impl InboundPacket for Disconnect {
-    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error> where Self: Sized {
+    async fn deserialize(reader: &mut BufReader<OwnedReadHalf>) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
         Ok(Disconnect {
             message: read_str(reader, 100).await?,
         })

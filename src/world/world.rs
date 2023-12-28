@@ -1,13 +1,25 @@
-use std::{rc::Rc, collections::HashMap};
+use std::{collections::HashMap, rc::Rc};
 
 use glam::{Mat4, Vec3};
 use slab::Slab;
-use wgpu::{RenderPipeline, BindGroup};
-use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton, KeyboardInput}};
+use wgpu::{BindGroup, RenderPipeline};
+use winit::{
+    dpi::PhysicalPosition,
+    event::{ElementState, KeyboardInput, MouseButton},
+};
 
-use crate::{scene::{Scene, NextState}, gpu::GpuWrapper, uniforms::{UniformSpec, UniformStorage}, net::{packets::{self, PacketHandler, OutboundPacket}, Connection}, world::chunk};
+use crate::{
+    gpu::GpuWrapper,
+    net::{
+        packets::{self, OutboundPacket, PacketHandler},
+        Connection,
+    },
+    scene::{NextState, Scene},
+    uniforms::{UniformSpec, UniformStorage},
+    world::chunk,
+};
 
-use super::{Chunk, chunk::ChunkVertex, Block};
+use super::{chunk::ChunkVertex, Block, Chunk};
 
 const MOUSE_SENSITIVITY: f32 = 0.01;
 const MOVE_SPEED: f32 = 0.1;
@@ -22,7 +34,7 @@ const KEY_SPACE: u32 = 57;
 const PLAYER_EYE_HEIGHT: f64 = 1.62;
 const CHUNK_VIEW_RADIUS: i32 = 8;
 // CHUNK_VIEW_RADIUS on each side and one chunk in the middle
-const TOTAL_VIEWABLE_CHUNKS: i32 = (CHUNK_VIEW_RADIUS*2 + 1).pow(2);
+const TOTAL_VIEWABLE_CHUNKS: i32 = (CHUNK_VIEW_RADIUS * 2 + 1).pow(2);
 
 pub struct WorldResources {
     chunk_uniform_layout: UniformSpec,
@@ -32,10 +44,12 @@ pub struct WorldResources {
 
 impl WorldResources {
     pub fn new(gpu: &GpuWrapper) -> WorldResources {
-        let terrain_image = image::load_from_memory(include_bytes!("../../res/terrain.png")).unwrap();
+        let terrain_image =
+            image::load_from_memory(include_bytes!("../../res/terrain.png")).unwrap();
         let terrain_texture = gpu.create_texture(&terrain_image);
 
-        let chunk_uniform_layout = UniformSpec::new::<Mat4>(gpu, "Chunk Uniform Layout", wgpu::ShaderStages::VERTEX);
+        let chunk_uniform_layout =
+            UniformSpec::new::<Mat4>(gpu, "Chunk Uniform Layout", wgpu::ShaderStages::VERTEX);
         let pipeline = gpu.create_pipeline::<ChunkVertex>(
             "Chunk Pipeline",
             include_str!("../../res/chunk.wgsl"),
@@ -75,9 +89,15 @@ pub struct World {
 
 impl World {
     pub fn new(gpu: &GpuWrapper, resources: Rc<WorldResources>, connection: Connection) -> World {
-        let chunk_uniforms = UniformStorage::new(gpu, "Chunk Uniforms", &[
-            (&resources.chunk_uniform_layout, TOTAL_VIEWABLE_CHUNKS as usize, "Chunk Bindings"),
-        ]);
+        let chunk_uniforms = UniformStorage::new(
+            gpu,
+            "Chunk Uniforms",
+            &[(
+                &resources.chunk_uniform_layout,
+                TOTAL_VIEWABLE_CHUNKS as usize,
+                "Chunk Bindings",
+            )],
+        );
 
         World {
             chunks: HashMap::with_capacity(TOTAL_VIEWABLE_CHUNKS as usize),
@@ -109,7 +129,11 @@ impl World {
 
         for (uniform_index, chunk_pos) in &self.rendered_chunks {
             let chunk = self.chunks.get(chunk_pos).unwrap();
-            self.chunk_uniforms.set_element(0, uniform_index, (self.projection * view * chunk.transform()).to_cols_array());
+            self.chunk_uniforms.set_element(
+                0,
+                uniform_index,
+                (self.projection * view * chunk.transform()).to_cols_array(),
+            );
         }
         self.chunk_uniforms.update(gpu);
     }
@@ -120,11 +144,12 @@ impl World {
         }
 
         let (chunk_x, chunk_z) = chunk::to_chunk_pos(self.camera_x as i32, self.camera_z as i32);
-        for x in (chunk_x-CHUNK_VIEW_RADIUS)..=(chunk_x+CHUNK_VIEW_RADIUS) {
-            for z in (chunk_z-CHUNK_VIEW_RADIUS)..=(chunk_z+CHUNK_VIEW_RADIUS) {
+        for x in (chunk_x - CHUNK_VIEW_RADIUS)..=(chunk_x + CHUNK_VIEW_RADIUS) {
+            for z in (chunk_z - CHUNK_VIEW_RADIUS)..=(chunk_z + CHUNK_VIEW_RADIUS) {
                 if let Some(chunk) = self.chunks.get_mut(&(x, z)) {
                     let uniform_index = self.rendered_chunks.insert((x, z));
-                    chunk.uniform_offset = self.resources.chunk_uniform_layout.offset_of(uniform_index);
+                    chunk.uniform_offset =
+                        self.resources.chunk_uniform_layout.offset_of(uniform_index);
                 }
             }
         }
@@ -132,12 +157,17 @@ impl World {
 
     fn get_or_init_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> &mut Chunk {
         self.chunks.entry((chunk_x, chunk_z)).or_insert_with(|| {
-            let (cam_chunk_x, cam_chunk_z) = chunk::to_chunk_pos(self.camera_x as i32, self.camera_z as i32);
-            let is_viewable = (chunk_x - cam_chunk_x).abs() <= CHUNK_VIEW_RADIUS && (chunk_z - cam_chunk_z).abs() <= CHUNK_VIEW_RADIUS;
+            let (cam_chunk_x, cam_chunk_z) =
+                chunk::to_chunk_pos(self.camera_x as i32, self.camera_z as i32);
+            let is_viewable = (chunk_x - cam_chunk_x).abs() <= CHUNK_VIEW_RADIUS
+                && (chunk_z - cam_chunk_z).abs() <= CHUNK_VIEW_RADIUS;
 
             if is_viewable {
                 if self.rendered_chunks.len() >= self.rendered_chunks.capacity() {
-                    panic!("tried to add viewable chunk at {}, {} when all rendered slots are taken", chunk_x, chunk_z);
+                    panic!(
+                        "tried to add viewable chunk at {}, {} when all rendered slots are taken",
+                        chunk_x, chunk_z
+                    );
                 }
 
                 let uniform_index = self.rendered_chunks.insert((chunk_x, chunk_z));
@@ -161,7 +191,7 @@ impl World {
 
     fn process_packets(&mut self) {
         if self.disconnected {
-            return
+            return;
         }
 
         while let Some(packet) = self.connection.try_recv() {
@@ -177,7 +207,7 @@ impl World {
 
     fn queue_packet<P: OutboundPacket>(&self, packet: &P) {
         if self.disconnected {
-            return
+            return;
         }
 
         if !self.connection.queue_packet(packet) {
@@ -200,7 +230,12 @@ impl Scene for World {
         self.last_cursor_position = Some(position);
     }
 
-    fn handle_click(&mut self, gpu: &GpuWrapper, _state: ElementState, _button: MouseButton) -> NextState {
+    fn handle_click(
+        &mut self,
+        gpu: &GpuWrapper,
+        _state: ElementState,
+        _button: MouseButton,
+    ) -> NextState {
         NextState::Continue
     }
 
@@ -261,7 +296,11 @@ impl Scene for World {
         for (_, chunk_pos) in &self.rendered_chunks {
             let chunk = self.chunks.get(&chunk_pos).unwrap();
             if let Some(mesh) = chunk.mesh() {
-                render_pass.set_bind_group(1, self.chunk_uniforms.bind_group(0), &[chunk.uniform_offset]);
+                render_pass.set_bind_group(
+                    1,
+                    self.chunk_uniforms.bind_group(0),
+                    &[chunk.uniform_offset],
+                );
                 mesh.bind(render_pass);
                 mesh.draw(render_pass);
             }
@@ -282,8 +321,7 @@ impl PacketHandler for World {
         println!("World time: {}", packet.time);
     }
 
-    fn handle_set_entity_item(&mut self, _packet:  &packets::SetEntityItem) {
-    }
+    fn handle_set_entity_item(&mut self, _packet: &packets::SetEntityItem) {}
 
     fn handle_set_health(&mut self, packet: &packets::SetHealth) {
         println!("Health changed to {}", packet.health);
@@ -312,40 +350,38 @@ impl PacketHandler for World {
     }
 
     fn handle_spawn_player(&mut self, packet: &packets::SpawnPlayer) {
-        println!("Player {} at {}, {}, {}", packet.name, packet.x, packet.y, packet.z);
+        println!(
+            "Player {} at {}, {}, {}",
+            packet.name, packet.x, packet.y, packet.z
+        );
     }
 
     fn handle_spawn_item_entity(&mut self, packet: &packets::SpawnItemEntity) {
-        println!("Item on ground at {}, {}, {}: {}", packet.x, packet.y, packet.z, packet.item_id);
+        println!(
+            "Item on ground at {}, {}, {}: {}",
+            packet.x, packet.y, packet.z, packet.item_id
+        );
     }
 
-    fn handle_spawn_insentient_entity(&mut self, _packet: &packets::SpawnInsentientEntity) {
-    }
+    fn handle_spawn_insentient_entity(&mut self, _packet: &packets::SpawnInsentientEntity) {}
 
-    fn handle_spawn_entity(&mut self, _packet: &packets::SpawnEntity) {
-    }
+    fn handle_spawn_entity(&mut self, _packet: &packets::SpawnEntity) {}
 
-    fn handle_entity_velocity(&mut self, _packet: &packets::EntityVelocity) {
-    }
+    fn handle_entity_velocity(&mut self, _packet: &packets::EntityVelocity) {}
 
-    fn handle_remove_entity(&mut self, _packet: &packets::RemoveEntity) {
-    }
+    fn handle_remove_entity(&mut self, _packet: &packets::RemoveEntity) {}
 
-    fn handle_move_entity(&mut self, _packet: &packets::MoveEntity) {
-    }
+    fn handle_move_entity(&mut self, _packet: &packets::MoveEntity) {}
 
-    fn handle_entity_move_rot(&mut self, _packet: &packets::EntityMoveRot) {
-    }
+    fn handle_entity_move_rot(&mut self, _packet: &packets::EntityMoveRot) {}
 
-    fn handle_entity_pos_rot(&mut self, _packet: &packets::EntityPosRot) {
-    }
+    fn handle_entity_pos_rot(&mut self, _packet: &packets::EntityPosRot) {}
 
-    fn handle_set_entity_health(&mut self, _packet: &packets::SetEntityHealth) {
-    }
+    fn handle_set_entity_health(&mut self, _packet: &packets::SetEntityHealth) {}
 
     fn handle_init_chunk(&mut self, packet: &packets::InitChunk) {
         if packet.init {
-            return
+            return;
         }
 
         if let Some(chunk) = self.chunks.remove(&(packet.chunk_x, packet.chunk_z)) {
@@ -357,7 +393,8 @@ impl PacketHandler for World {
 
     fn handle_set_contiguous_blocks(&mut self, packet: &packets::SetContiguousBlocks) {
         let start_chunk_pos = chunk::to_chunk_pos(packet.x, packet.z);
-        let end_chunk_pos = chunk::to_chunk_pos(packet.x + packet.x_size - 1, packet.z + packet.z_size - 1);
+        let end_chunk_pos =
+            chunk::to_chunk_pos(packet.x + packet.x_size - 1, packet.z + packet.z_size - 1);
 
         // The Notchian server should never set contiguous blocks between chunk boundaries, but the
         // protocol allows for modified servers to potentially do it. We fall back an a
@@ -367,12 +404,17 @@ impl PacketHandler for World {
             for x in 0..packet.x_size {
                 for z in 0..packet.z_size {
                     for y in 0..packet.y_size {
-                        self.set_block(packet.x + x, packet.y + y, packet.z + z, packet.blocks[index]);
+                        self.set_block(
+                            packet.x + x,
+                            packet.y + y,
+                            packet.z + z,
+                            packet.blocks[index],
+                        );
                         index += 1;
                     }
                 }
             }
-            return
+            return;
         }
 
         let chunk = self.get_or_init_chunk(start_chunk_pos.0, start_chunk_pos.1);
@@ -381,7 +423,12 @@ impl PacketHandler for World {
         for x in 0..packet.x_size {
             for z in 0..packet.z_size {
                 for y in 0..packet.y_size {
-                    chunk.set_block((x + x_offset) as usize, y as usize, (z + z_offset) as usize, packet.blocks[index]);
+                    chunk.set_block(
+                        (x + x_offset) as usize,
+                        y as usize,
+                        (z + z_offset) as usize,
+                        packet.blocks[index],
+                    );
                     index += 1;
                 }
             }
@@ -404,7 +451,11 @@ impl PacketHandler for World {
     }
 
     fn handle_update_entity_attributes(&mut self, packet: &packets::UpdateEntityAttributes) {
-        println!("Change {} attributes on entity {}", packet.attributes.len(), packet.id);
+        println!(
+            "Change {} attributes on entity {}",
+            packet.attributes.len(),
+            packet.id
+        );
     }
 
     fn handle_after_respawn(&mut self, packet: &packets::AfterRespawn) {
@@ -412,15 +463,23 @@ impl PacketHandler for World {
     }
 
     fn handle_set_inventory_slot(&mut self, packet: &packets::SetInventorySlot) {
-        println!("Inventory {}, slot {}: {:?}", packet.inventory_id, packet.slot, packet.item.map(|i| i.0))
+        println!(
+            "Inventory {}, slot {}: {:?}",
+            packet.inventory_id,
+            packet.slot,
+            packet.item.map(|i| i.0)
+        )
     }
 
     fn handle_set_inventory_items(&mut self, packet: &packets::SetInventoryItems) {
-        println!("Inventory {}: {} items", packet.inventory_id, packet.items.len());
+        println!(
+            "Inventory {}: {} items",
+            packet.inventory_id,
+            packet.items.len()
+        );
     }
 
-    fn handle_statistic(&mut self, _packet: &packets::Statistic) {
-    }
+    fn handle_statistic(&mut self, _packet: &packets::Statistic) {}
 
     fn handle_disconnect(&mut self, packet: &packets::Disconnect) {
         println!("Disconnected: {}", packet.message);

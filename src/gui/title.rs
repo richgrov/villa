@@ -2,11 +2,19 @@ use std::rc::Rc;
 
 use tokio::sync::mpsc;
 use wgpu::RenderPass;
-use winit::{dpi::PhysicalPosition, event::{ElementState, MouseButton}};
+use winit::{
+    dpi::PhysicalPosition,
+    event::{ElementState, MouseButton},
+};
 
-use crate::{gpu::GpuWrapper, scene::{Scene, NextState}, world::{World, WorldResources}, net::Connection};
+use crate::{
+    gpu::GpuWrapper,
+    net::Connection,
+    scene::{NextState, Scene},
+    world::{World, WorldResources},
+};
 
-use super::{GuiResources, GuiSpec, Gui, render::SpriteVertex};
+use super::{render::SpriteVertex, Gui, GuiResources, GuiSpec};
 
 const BACKGROUND_VERTICES: [SpriteVertex; 4] = [
     SpriteVertex {
@@ -17,7 +25,6 @@ const BACKGROUND_VERTICES: [SpriteVertex; 4] = [
         pos: [1., 0.],
         uv: [1., 1.],
     },
-
     SpriteVertex {
         pos: [1., 1.],
         uv: [1., 0.],
@@ -29,20 +36,20 @@ const BACKGROUND_VERTICES: [SpriteVertex; 4] = [
 ];
 const BACKGROUND_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
-const LOGO_ASPECT: f32 = (155.+119.) / 44.;
-const LOGO_SPLIT: f32 = 155. / (155.+119.);
+const LOGO_ASPECT: f32 = (155. + 119.) / 44.;
+const LOGO_SPLIT: f32 = 155. / (155. + 119.);
 const LOGO_VERTICES: [SpriteVertex; 8] = [
     SpriteVertex {
         pos: [0., 0.],
-        uv: [0., 44./256.],
+        uv: [0., 44. / 256.],
     },
     SpriteVertex {
         pos: [LOGO_SPLIT, 0.],
-        uv: [155./256., 44./256.],
+        uv: [155. / 256., 44. / 256.],
     },
     SpriteVertex {
         pos: [LOGO_SPLIT, 1.],
-        uv: [155./256., 0.],
+        uv: [155. / 256., 0.],
     },
     SpriteVertex {
         pos: [0., 1.],
@@ -50,19 +57,19 @@ const LOGO_VERTICES: [SpriteVertex; 8] = [
     },
     SpriteVertex {
         pos: [LOGO_SPLIT, 0.],
-        uv: [0., 89./256.],
+        uv: [0., 89. / 256.],
     },
     SpriteVertex {
         pos: [1., 0.],
-        uv: [119./256., 89./256.],
+        uv: [119. / 256., 89. / 256.],
     },
     SpriteVertex {
         pos: [1., 1.],
-        uv: [119./256., 45./256.],
+        uv: [119. / 256., 45. / 256.],
     },
     SpriteVertex {
         pos: [LOGO_SPLIT, 1.],
-        uv: [0., 45./256.],
+        uv: [0., 45. / 256.],
     },
 ];
 
@@ -90,7 +97,8 @@ impl TitleGui {
         let options = gui.button("Options");
         let quit = gui.button("Quit");
 
-        let background_image = image::load_from_memory(include_bytes!("../../res/background.png")).unwrap();
+        let background_image =
+            image::load_from_memory(include_bytes!("../../res/background.png")).unwrap();
         let background_texture = gpu.create_texture(&background_image);
         let background_mesh = gpu.create_mesh(&BACKGROUND_VERTICES, &BACKGROUND_INDICES);
         let background = gui.image(background_texture, background_mesh);
@@ -128,9 +136,15 @@ impl Scene for TitleGui {
         } else {
             background.width = height * self.background_aspect;
             background.height = height;
-            background.set_pos(width / 2. - background.width / 2., height / 2. - background.height / 2.);
+            background.set_pos(
+                width / 2. - background.width / 2.,
+                height / 2. - background.height / 2.,
+            );
         }
-        background.set_pos(width / 2. - background.width / 2., height / 2. - background.height / 2.);
+        background.set_pos(
+            width / 2. - background.width / 2.,
+            height / 2. - background.height / 2.,
+        );
 
         let logo = self.gui.image(self.logo);
         logo.height = height * 0.15;
@@ -152,9 +166,14 @@ impl Scene for TitleGui {
         self.gui.mouse_moved(gpu, position);
     }
 
-    fn handle_click(&mut self, gpu: &GpuWrapper, state: ElementState, button: MouseButton) -> NextState {
+    fn handle_click(
+        &mut self,
+        gpu: &GpuWrapper,
+        state: ElementState,
+        button: MouseButton,
+    ) -> NextState {
         if button != MouseButton::Left {
-            return NextState::Continue
+            return NextState::Continue;
         }
 
         if let Some(button_id) = self.gui.handle_click(gpu, state, self.last_mouse_pos) {
@@ -167,26 +186,29 @@ impl Scene for TitleGui {
                     }
                 });
             } else if button_id == self.quit {
-                return NextState::Exit
+                return NextState::Exit;
             }
         }
 
         NextState::Continue
     }
 
-    fn handle_key_input(&mut self, _gpu: &GpuWrapper, _key: winit::event::KeyboardInput) {
-    }
+    fn handle_key_input(&mut self, _gpu: &GpuWrapper, _key: winit::event::KeyboardInput) {}
 
     fn update(&mut self, gpu: &GpuWrapper) -> NextState {
         match self.connection_rx.try_recv() {
             Ok(result) => match result {
                 Ok(conn) => {
                     let resources = WorldResources::new(gpu);
-                    return NextState::ChangeScene(Box::new(World::new(gpu, Rc::new(resources), conn)))
-                },
+                    return NextState::ChangeScene(Box::new(World::new(
+                        gpu,
+                        Rc::new(resources),
+                        conn,
+                    )));
+                }
                 Err(e) => eprintln!("failed to connect: {}", e),
             },
-            _ => {},
+            _ => {}
         }
 
         NextState::Continue
