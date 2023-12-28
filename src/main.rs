@@ -57,6 +57,7 @@ impl App {
         }
     }
 
+    /// Returns `true` if the app should exit
     fn update(&mut self) -> bool {
         match self.current_scene.update(&self.gpu) {
             NextState::Continue => {}
@@ -87,6 +88,7 @@ impl App {
         self.current_scene.handle_mouse_move(&self.gpu, converted);
     }
 
+    /// Returns `true` if the app should exit
     fn handle_click(&mut self, state: ElementState, button: MouseButton) -> bool {
         let next_state = self.current_scene.handle_click(&self.gpu, state, button);
         match next_state {
@@ -189,7 +191,8 @@ async fn main() {
                     frames = 0;
                 }
 
-                if app.update() {
+                let should_exit = app.update();
+                if should_exit {
                     *control_flow = ControlFlow::Exit;
                 }
 
