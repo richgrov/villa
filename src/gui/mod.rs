@@ -2,6 +2,6 @@ mod render;
 pub mod text;
 mod title;
 
-pub use title::TitleGui;
+pub use render::{Gui, GuiResources, GuiSpec};
 pub use text::BakedText;
-pub use render::{GuiSpec, GuiResources, Gui};
+pub use title::TitleGui;

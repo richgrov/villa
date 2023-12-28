@@ -1,5 +1,5 @@
-use wgpu::{util::DeviceExt, BufferUsages, DepthStencilState, StencilState, DepthBiasState};
-use winit::{window::Window, dpi::PhysicalSize};
+use wgpu::{util::DeviceExt, BufferUsages, DepthBiasState, DepthStencilState, StencilState};
+use winit::{dpi::PhysicalSize, window::Window};
 
 pub const DEPTH_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
@@ -19,20 +19,31 @@ impl GpuWrapper {
         let instance = wgpu::Instance::default();
 
         let surface = unsafe { instance.create_surface(&window) }.unwrap();
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
-            force_fallback_adapter: false,
-            compatible_surface: Some(&surface),
-        }).await.unwrap();
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                force_fallback_adapter: false,
+                compatible_surface: Some(&surface),
+            })
+            .await
+            .unwrap();
 
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            label: None,
-            features: wgpu::Features::empty(),
-            limits: wgpu::Limits::default(),
-        }, None).await.unwrap();
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default(),
+                },
+                None,
+            )
+            .await
+            .unwrap();
 
         let capabilities = surface.get_capabilities(&adapter);
-        let format = capabilities.formats.iter()
+        let format = capabilities
+            .formats
+            .iter()
             .copied()
             .find(|fmt| fmt.is_srgb())
             .unwrap_or(capabilities.formats[0]);
@@ -66,9 +77,7 @@ impl GpuWrapper {
                     binding: 0,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float {
-                            filterable: true,
-                        },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                         multisampled: false,
                     },
@@ -96,7 +105,7 @@ impl GpuWrapper {
 
     pub fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width == 0 || new_size.height == 0 {
-            return
+            return;
         }
 
         self.last_surface_size = new_size;
@@ -132,77 +141,92 @@ impl GpuWrapper {
         bind_group_layouts: &[&wgpu::BindGroupLayout],
         depth: bool,
     ) -> wgpu::RenderPipeline {
-        let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(&format!("{} shader", name)),
-            source: wgpu::ShaderSource::Wgsl(src.into()),
-        });
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(&format!("{} shader", name)),
+                source: wgpu::ShaderSource::Wgsl(src.into()),
+            });
 
-        let layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some(&format!("{} pipeline layout", name)),
-            bind_group_layouts,
-            push_constant_ranges: &[],
-        });
+        let layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some(&format!("{} pipeline layout", name)),
+                bind_group_layouts,
+                push_constant_ranges: &[],
+            });
 
-        self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some(&format!("{} pipeline", name)),
-            layout: Some(&layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<T>() as u64,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: T::attributes(),
-                }],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: self.surface_config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: if depth {
-                Some(DepthStencilState {
-                    format: DEPTH_TEXTURE_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: StencilState::default(),
-                    bias: DepthBiasState::default(),
-                })
-            } else { None },
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        })
+        self.device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(&format!("{} pipeline", name)),
+                layout: Some(&layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[wgpu::VertexBufferLayout {
+                        array_stride: std::mem::size_of::<T>() as u64,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: T::attributes(),
+                    }],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.surface_config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: if depth {
+                    Some(DepthStencilState {
+                        format: DEPTH_TEXTURE_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        stencil: StencilState::default(),
+                        bias: DepthBiasState::default(),
+                    })
+                } else {
+                    None
+                },
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            })
     }
 
-    pub fn create_mesh<V: bytemuck::Pod, I: bytemuck::Pod + IndexType>(&self, vertices: &[V], indices: &[I]) -> Mesh {
-        let vertex_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(vertices),
-            usage: BufferUsages::VERTEX,
-        });
+    pub fn create_mesh<V: bytemuck::Pod, I: bytemuck::Pod + IndexType>(
+        &self,
+        vertices: &[V],
+        indices: &[I],
+    ) -> Mesh {
+        let vertex_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(vertices),
+                usage: BufferUsages::VERTEX,
+            });
 
-        let index_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(indices),
-            usage: BufferUsages::INDEX,
-        });
+        let index_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(indices),
+                usage: BufferUsages::INDEX,
+            });
 
         Mesh {
             vertex_buf,
@@ -243,7 +267,7 @@ impl GpuWrapper {
                 bytes_per_row: Some(4 * image.width()),
                 rows_per_image: Some(image.height()),
             },
-            dimensions
+            dimensions,
         );
 
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -263,7 +287,11 @@ impl GpuWrapper {
         })
     }
 
-    pub fn create_depth_texture(&self, width: u32, height: u32) -> (wgpu::Texture, wgpu::TextureView) {
+    pub fn create_depth_texture(
+        &self,
+        width: u32,
+        height: u32,
+    ) -> (wgpu::Texture, wgpu::TextureView) {
         let dimensions = wgpu::Extent3d {
             width,
             height,
@@ -285,12 +313,23 @@ impl GpuWrapper {
         (texture, texture_view)
     }
 
-    pub fn begin_draw(&self) -> Result<(wgpu::SurfaceTexture, wgpu::TextureView, wgpu::CommandEncoder), wgpu::SurfaceError> {
+    pub fn begin_draw(
+        &self,
+    ) -> Result<
+        (
+            wgpu::SurfaceTexture,
+            wgpu::TextureView,
+            wgpu::CommandEncoder,
+        ),
+        wgpu::SurfaceError,
+    > {
         let frame = self.surface.get_current_texture()?;
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: None,
-        });
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         Ok((frame, view, encoder))
     }

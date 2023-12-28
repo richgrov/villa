@@ -1,6 +1,6 @@
+mod gpu;
 mod gui;
 mod net;
-mod gpu;
 mod scene;
 mod uniforms;
 mod world;
@@ -9,9 +9,12 @@ use std::rc::Rc;
 
 use gpu::GpuWrapper;
 use gui::TitleGui;
-use scene::{Scene, NextState};
+use scene::{NextState, Scene};
 use wgpu::StoreOp;
-use winit::{event_loop::{EventLoop, ControlFlow}, window::{Window, WindowBuilder}, dpi::{PhysicalSize, PhysicalPosition}, event::{ElementState, MouseButton, KeyboardInput}};
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event::{ElementState, KeyboardInput, MouseButton};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::{Window, WindowBuilder};
 
 pub struct App {
     window: Window,
@@ -39,7 +42,8 @@ impl App {
         let mut title = TitleGui::new(&gpu, gui_resources.clone());
 
         let window_size = window.inner_size();
-        let (depth_texture, depth_texture_view) = gpu.create_depth_texture(window_size.width, window_size.height);
+        let (depth_texture, depth_texture_view) =
+            gpu.create_depth_texture(window_size.width, window_size.height);
         title.handle_resize(&gpu, window_size.width as f32, window_size.height as f32);
 
         App {
@@ -55,7 +59,7 @@ impl App {
 
     fn update(&mut self) -> bool {
         match self.current_scene.update(&self.gpu) {
-            NextState::Continue => {},
+            NextState::Continue => {}
             NextState::ChangeScene(scene) => self.set_scene(scene),
             NextState::Exit => return true,
         }
@@ -66,16 +70,19 @@ impl App {
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>) {
         self.window_size = new_size;
         self.gpu.handle_resize(new_size);
-        let (depth_texture, depth_texture_view) = self.gpu.create_depth_texture(new_size.width, new_size.height);
+        let (depth_texture, depth_texture_view) = self
+            .gpu
+            .create_depth_texture(new_size.width, new_size.height);
         self.depth_texture = depth_texture;
         self.depth_texture_view = depth_texture_view;
-        self.current_scene.handle_resize(&self.gpu, new_size.width as f32, new_size.height as f32);
+        self.current_scene
+            .handle_resize(&self.gpu, new_size.width as f32, new_size.height as f32);
     }
 
     fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
         let converted = PhysicalPosition::new(
             position.x as f32,
-            self.window_size.height as f32 - position.y as f32
+            self.window_size.height as f32 - position.y as f32,
         );
         self.current_scene.handle_mouse_move(&self.gpu, converted);
     }
@@ -83,7 +90,7 @@ impl App {
     fn handle_click(&mut self, state: ElementState, button: MouseButton) -> bool {
         let next_state = self.current_scene.handle_click(&self.gpu, state, button);
         match next_state {
-            NextState::Continue => {},
+            NextState::Continue => {}
             NextState::ChangeScene(scene) => self.set_scene(scene),
             NextState::Exit => return true,
         }
@@ -187,30 +194,36 @@ async fn main() {
                 }
 
                 match app.draw() {
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => app.gpu.reconfigure_surface(),
+                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                        app.gpu.reconfigure_surface()
+                    }
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     Err(e) => eprintln!("{:?}", e),
-                    _ => {},
+                    _ => {}
                 }
-            },
-            Event::WindowEvent { window_id, event } if window_id == app.window.id() => match event {
-                WindowEvent::Resized(size) => app.handle_resize(size),
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => app.handle_resize(*new_inner_size),
-                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                WindowEvent::CursorMoved { position, .. } => app.mouse_moved(position),
-                WindowEvent::MouseInput { state, button, .. } => {
-                    let should_exit = app.handle_click(state, button);
-                    if should_exit {
-                        *control_flow = ControlFlow::Exit;
+            }
+            Event::WindowEvent { window_id, event } if window_id == app.window.id() => {
+                match event {
+                    WindowEvent::Resized(size) => app.handle_resize(size),
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        app.handle_resize(*new_inner_size)
                     }
-                },
-                WindowEvent::KeyboardInput { input, .. } => app.handle_key_input(input),
-                _ => {},
-            },
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CursorMoved { position, .. } => app.mouse_moved(position),
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        let should_exit = app.handle_click(state, button);
+                        if should_exit {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                    }
+                    WindowEvent::KeyboardInput { input, .. } => app.handle_key_input(input),
+                    _ => {}
+                }
+            }
             Event::MainEventsCleared => {
                 app.window.request_redraw();
             }
-            _ => {},
+            _ => {}
         }
     });
 }

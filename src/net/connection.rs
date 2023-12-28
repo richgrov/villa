@@ -1,8 +1,12 @@
-use tokio::{net::{TcpStream, tcp::OwnedReadHalf}, io::{BufReader, AsyncReadExt, AsyncWriteExt}, sync::mpsc};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, BufReader},
+    net::{tcp::OwnedReadHalf, TcpStream},
+    sync::mpsc,
+};
 
 use std::io::{Error, ErrorKind};
 
-use super::packets::{self, InboundPacket, OutboundPacket, PacketVisitor, Packet};
+use super::packets::{self, InboundPacket, OutboundPacket, Packet, PacketVisitor};
 
 pub struct Connection {
     inbound_packets_rx: mpsc::Receiver<Result<Box<dyn PacketVisitor + Send>, std::io::Error>>,
@@ -15,24 +19,37 @@ impl Connection {
         let (reader, mut writer) = stream.into_split();
         let mut reader = BufReader::with_capacity(1024, reader);
 
-        writer.write_all(&packets::Handshake {
-            username: username.to_owned(),
-        }.serialize()).await?;
+        writer
+            .write_all(
+                &packets::Handshake {
+                    username: username.to_owned(),
+                }
+                .serialize(),
+            )
+            .await?;
 
         let response_handshake: packets::Handshake = expect_packet(&mut reader).await?;
         if response_handshake.username != "-" {
             return Err(Error::new(
                 ErrorKind::Unsupported,
-                format!("expected to authentication string from server but got {}", response_handshake.username),
-            ))
+                format!(
+                    "expected to authentication string from server but got {}",
+                    response_handshake.username
+                ),
+            ));
         }
 
-        writer.write_all(&packets::Login {
-            protocol_version: packets::PROTOCOL_VERSION,
-            username: username.to_owned(),
-            seed: 0,
-            dimension: 0,
-        }.serialize()).await?;
+        writer
+            .write_all(
+                &packets::Login {
+                    protocol_version: packets::PROTOCOL_VERSION,
+                    username: username.to_owned(),
+                    seed: 0,
+                    dimension: 0,
+                }
+                .serialize(),
+            )
+            .await?;
 
         let (in_tx, in_rx) = mpsc::channel(24);
         let in_tx2 = in_tx.clone(); // used for writer task
@@ -45,7 +62,7 @@ impl Connection {
                 in_tx.send(packet).await?;
 
                 if err {
-                    break
+                    break;
                 }
             }
 
@@ -60,8 +77,8 @@ impl Connection {
                             // Ignored for same reason as reader task
                             in_tx2.send(Err(e)).await?;
                         }
-                    },
-                    Err(mpsc::error::TryRecvError::Empty) => {},
+                    }
+                    Err(mpsc::error::TryRecvError::Empty) => {}
                     Err(mpsc::error::TryRecvError::Disconnected) => break,
                 };
             }
@@ -75,7 +92,9 @@ impl Connection {
         })
     }
 
-    async fn read_next_packet(reader: &mut BufReader<OwnedReadHalf>) -> Result<Box<dyn PacketVisitor + Send>, Error> {
+    async fn read_next_packet(
+        reader: &mut BufReader<OwnedReadHalf>,
+    ) -> Result<Box<dyn PacketVisitor + Send>, Error> {
         let id = reader.read_u8().await?;
 
         macro_rules! match_packets {
@@ -94,7 +113,7 @@ impl Connection {
                         },
                     )*
                     other => return Err(Error::new(ErrorKind::InvalidInput, format!("unhandled packet id {}", other))),
-                }    
+                }
             };
         }
         Ok(match_packets!(
@@ -144,10 +163,15 @@ impl Connection {
     }
 }
 
-async fn expect_packet<P: InboundPacket>(reader: &mut BufReader<OwnedReadHalf>) -> Result<P, Error> {
+async fn expect_packet<P: InboundPacket>(
+    reader: &mut BufReader<OwnedReadHalf>,
+) -> Result<P, Error> {
     let id = reader.read_u8().await?;
     if id != P::ID {
-        return Err(Error::new(ErrorKind::InvalidInput, format!("expected packet ID {} but got {}", P::ID, id)))
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("expected packet ID {} but got {}", P::ID, id),
+        ));
     }
 
     P::deserialize(reader).await

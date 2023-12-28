@@ -11,19 +11,21 @@ impl UniformSpec {
         let aligned_size = wgpu::util::align_to(std::mem::size_of::<T>(), uniform_alignment);
 
         UniformSpec {
-            layout: gpu.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some(name),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(aligned_size as u64),
-                    },
-                    count: None,
-                }],
-            }),
+            layout: gpu
+                .device()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some(name),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: wgpu::BufferSize::new(aligned_size as u64),
+                        },
+                        count: None,
+                    }],
+                }),
             element_aligned_size: aligned_size,
         }
     }
@@ -46,8 +48,14 @@ pub struct UniformStorage {
 }
 
 impl UniformStorage {
-    pub fn new(gpu: &GpuWrapper, name: &str, specs: &[(&UniformSpec, usize, &str)]) -> UniformStorage {
-        let total_buf_size = specs.iter().fold(0, |acc, (spec, num_entries, _)| acc + spec.element_aligned_size * num_entries);
+    pub fn new(
+        gpu: &GpuWrapper,
+        name: &str,
+        specs: &[(&UniformSpec, usize, &str)],
+    ) -> UniformStorage {
+        let total_buf_size = specs.iter().fold(0, |acc, (spec, num_entries, _)| {
+            acc + spec.element_aligned_size * num_entries
+        });
         let buffer = gpu.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(name),
             size: total_buf_size as u64,
@@ -88,10 +96,16 @@ impl UniformStorage {
         }
     }
 
-    pub fn set_element<T: bytemuck::Pod>(&mut self, spec_index: usize, element_index: usize, value: T) {
-        let offset = self.section_offsets[spec_index] + self.section_element_sizes[spec_index] * element_index;
+    pub fn set_element<T: bytemuck::Pod>(
+        &mut self,
+        spec_index: usize,
+        element_index: usize,
+        value: T,
+    ) {
+        let offset = self.section_offsets[spec_index]
+            + self.section_element_sizes[spec_index] * element_index;
         let bytes = bytemuck::bytes_of(&value);
-        self.staging[offset..offset+std::mem::size_of::<T>()].copy_from_slice(bytes);
+        self.staging[offset..offset + std::mem::size_of::<T>()].copy_from_slice(bytes);
     }
 
     pub fn bind_group(&self, index: usize) -> &wgpu::BindGroup {

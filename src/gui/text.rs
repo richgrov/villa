@@ -2,7 +2,7 @@ use wgpu::{util::DeviceExt, BufferUsages, IndexFormat};
 
 use crate::gpu::GpuWrapper;
 
-use super::{GuiResources, render::FontVertex};
+use super::{render::FontVertex, GuiResources};
 
 pub struct BakedText {
     vertex_buf: wgpu::Buffer,
@@ -12,7 +12,12 @@ pub struct BakedText {
 }
 
 impl<'a> BakedText {
-    pub fn new(gpu: &GpuWrapper, resources: &GuiResources, text: &str, shadow: bool) -> Option<Self> {
+    pub fn new(
+        gpu: &GpuWrapper,
+        resources: &GuiResources,
+        text: &str,
+        shadow: bool,
+    ) -> Option<Self> {
         let mesh_factor = if shadow { 2 } else { 1 };
         let mut vertices = Vec::with_capacity(text.len() * 4 * mesh_factor);
         let mut indices = Vec::with_capacity(text.len() * 6 * mesh_factor);
@@ -29,12 +34,12 @@ impl<'a> BakedText {
             let vertex_data = [
                 FontVertex {
                     pos: [x_offset, 0.],
-                    uv: [uv.left(), uv.top() + 1./16.],
+                    uv: [uv.left(), uv.top() + 1. / 16.],
                     color: [1.0, 1.0, 1.0],
                 },
                 FontVertex {
                     pos: [x_offset + render_width, 0.],
-                    uv: [uv.left() + uv.width(), uv.top() + 1./16.],
+                    uv: [uv.left() + uv.width(), uv.top() + 1. / 16.],
                     color: [1.0, 1.0, 1.0],
                 },
                 FontVertex {
@@ -52,8 +57,8 @@ impl<'a> BakedText {
             if shadow {
                 let mut shadow_text = vertex_data.clone();
                 for v in &mut shadow_text {
-                    v.pos[0] += 1./16.;
-                    v.pos[1] -= 1./16.;
+                    v.pos[0] += 1. / 16.;
+                    v.pos[1] -= 1. / 16.;
                     v.color = [0.24705882352, 0.24705882352, 0.24705882352];
                 }
                 vertices.extend_from_slice(&shadow_text);
@@ -69,23 +74,32 @@ impl<'a> BakedText {
 
             for _ in 0..mesh_factor {
                 indices.extend_from_slice(&[
-                      index_offset, index_offset + 1, index_offset + 2, index_offset + 2, index_offset + 3, index_offset
+                    index_offset,
+                    index_offset + 1,
+                    index_offset + 2,
+                    index_offset + 2,
+                    index_offset + 3,
+                    index_offset,
                 ]);
                 index_offset += 4;
             }
         }
 
-        let vertex_buf = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(&format!("Baked text vertices: {}", text)),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: BufferUsages::VERTEX,
-        });
+        let vertex_buf = gpu
+            .device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(&format!("Baked text vertices: {}", text)),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: BufferUsages::VERTEX,
+            });
 
-        let index_buf = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(&format!("Baked text indices: {}", text)),
-            contents: bytemuck::cast_slice(&indices),
-            usage: BufferUsages::INDEX,
-        });
+        let index_buf = gpu
+            .device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(&format!("Baked text indices: {}", text)),
+                contents: bytemuck::cast_slice(&indices),
+                usage: BufferUsages::INDEX,
+            });
 
         Some(BakedText {
             vertex_buf,

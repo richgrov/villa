@@ -2,7 +2,10 @@ use glam::{Mat4, Vec3};
 use image::GenericImageView;
 use winit::{dpi::PhysicalPosition, event::ElementState};
 
-use crate::{gpu::{GpuWrapper, Mesh}, uniforms::{UniformStorage, UniformSpec}};
+use crate::{
+    gpu::{GpuWrapper, Mesh},
+    uniforms::{UniformSpec, UniformStorage},
+};
 
 use super::BakedText;
 
@@ -54,7 +57,11 @@ pub struct CharacterUv {
 
 impl CharacterUv {
     pub fn zero() -> CharacterUv {
-        CharacterUv { left: 0., top: 0., width: 0. }
+        CharacterUv {
+            left: 0.,
+            top: 0.,
+            width: 0.,
+        }
     }
 
     pub fn left(&self) -> f32 {
@@ -72,8 +79,13 @@ impl CharacterUv {
 
 impl GuiResources {
     pub fn new(gpu: &GpuWrapper) -> GuiResources {
-        let font_uniform_layout = UniformSpec::new::<Mat4>(gpu, "Font Uniform Layout", wgpu::ShaderStages::VERTEX);
-        let sprite_uniform_layout = UniformSpec::new::<SpriteUniform>(gpu, "Sprite Uniform Layout", wgpu::ShaderStages::VERTEX);
+        let font_uniform_layout =
+            UniformSpec::new::<Mat4>(gpu, "Font Uniform Layout", wgpu::ShaderStages::VERTEX);
+        let sprite_uniform_layout = UniformSpec::new::<SpriteUniform>(
+            gpu,
+            "Sprite Uniform Layout",
+            wgpu::ShaderStages::VERTEX,
+        );
 
         let pipeline = gpu.create_pipeline::<FontVertex>(
             "Font",
@@ -93,7 +105,11 @@ impl GuiResources {
         let cell_width = image.width() / 16;
         let cell_height = image.height() / 16;
         let mut character_uv = vec![CharacterUv::zero(); 256];
-        let font_map: Vec<_> = include_str!("../../res/font.txt").to_owned().replace("\n", "").chars().collect();
+        let font_map: Vec<_> = include_str!("../../res/font.txt")
+            .to_owned()
+            .replace("\n", "")
+            .chars()
+            .collect();
         for cell_x in 0..16 {
             for cell_y in 0..16 {
                 let uv = &mut character_uv[(cell_y * 16 + cell_x) as usize];
@@ -106,7 +122,7 @@ impl GuiResources {
                         let image_y = y_pixel + cell_y * cell_height;
                         if image.get_pixel(image_x, image_y)[3] != 0 {
                             uv.width = (x_pixel + 1) as f32 / image.width() as f32;
-                            break 'find_width
+                            break 'find_width;
                         }
                     }
                 }
@@ -127,24 +143,27 @@ impl GuiResources {
         );
         let gui_image = image::load_from_memory(include_bytes!("../../res/gui.png")).unwrap();
         let gui_texture = gpu.create_texture(&gui_image);
-        let gui_button_large = gpu.create_mesh(&[
-            SpriteVertex {
-                pos: [0., 0.],
-                uv: [0., 66./256.],
-            },
-            SpriteVertex {
-                pos: [1., 0.],
-                uv: [200./256., 66./256.],
-            },
-            SpriteVertex {
-                pos: [1., 1.],
-                uv: [200./256., 46./256.],
-            },
-            SpriteVertex {
-                pos: [0., 1.],
-                uv: [0., 46./256.],
-            },
-        ], &[0u16, 1, 2, 2, 3, 0]);
+        let gui_button_large = gpu.create_mesh(
+            &[
+                SpriteVertex {
+                    pos: [0., 0.],
+                    uv: [0., 66. / 256.],
+                },
+                SpriteVertex {
+                    pos: [1., 0.],
+                    uv: [200. / 256., 66. / 256.],
+                },
+                SpriteVertex {
+                    pos: [1., 1.],
+                    uv: [200. / 256., 46. / 256.],
+                },
+                SpriteVertex {
+                    pos: [0., 1.],
+                    uv: [0., 46. / 256.],
+                },
+            ],
+            &[0u16, 1, 2, 2, 3, 0],
+        );
 
         GuiResources {
             font_pipeline: pipeline,
@@ -162,10 +181,22 @@ impl GuiResources {
     }
 
     pub fn build_gui(&self, gpu: &GpuWrapper, gui_spec: GuiSpec) -> Gui {
-        let uniform_storage = UniformStorage::new(gpu, "Gui", &[
-            (&self.sprite_uniform_layout, gui_spec.buttons.len() + gui_spec.images.len(), "Image Bindings"),
-            (&self.font_uniform_layout, gui_spec.buttons.len(), "Text Bindings"),
-        ]);
+        let uniform_storage = UniformStorage::new(
+            gpu,
+            "Gui",
+            &[
+                (
+                    &self.sprite_uniform_layout,
+                    gui_spec.buttons.len() + gui_spec.images.len(),
+                    "Image Bindings",
+                ),
+                (
+                    &self.font_uniform_layout,
+                    gui_spec.buttons.len(),
+                    "Text Bindings",
+                ),
+            ],
+        );
 
         let mut image_uniform_index = 0;
         let mut images = Vec::with_capacity(gui_spec.images.len());
@@ -228,7 +259,7 @@ impl Image {
 
         SpriteUniform {
             mvp: (projection * model).to_cols_array(),
-            v_offset: 0.
+            v_offset: 0.,
         }
     }
 }
@@ -252,7 +283,7 @@ impl Button {
 
         SpriteUniform {
             mvp: (projection * model).to_cols_array(),
-            v_offset: if hovered { 40./256. } else { 20./256. },
+            v_offset: if hovered { 40. / 256. } else { 20. / 256. },
         }
     }
 
@@ -260,8 +291,11 @@ impl Button {
         let scale = self.height / 2.;
         let centered_offset = self.width / 2. - (self.baked_text.width() * scale) / 2.;
 
-        let model = Mat4::from_translation(Vec3::new(self.x + centered_offset, self.y + self.height * 0.25, 0.))
-            * Mat4::from_scale(Vec3::new(scale, scale, 1.));
+        let model = Mat4::from_translation(Vec3::new(
+            self.x + centered_offset,
+            self.y + self.height * 0.25,
+            0.,
+        )) * Mat4::from_scale(Vec3::new(scale, scale, 1.));
         *projection * model
     }
 
@@ -271,8 +305,7 @@ impl Button {
     }
 
     fn contains_point(&self, x: f32, y: f32) -> bool {
-        x > self.x && x < self.x + self.width
-            && y > self.y && y < self.y + self.height
+        x > self.x && x < self.x + self.width && y > self.y && y < self.y + self.height
     }
 
     pub fn set_pos(&mut self, x: f32, y: f32) {
@@ -311,14 +344,7 @@ impl Gui {
     pub fn resize(&mut self, gpu: &GpuWrapper) {
         let width = gpu.window_size().width as f32;
         let height = gpu.window_size().height as f32;
-        let projection = Mat4::orthographic_lh(
-            0.,
-            width,
-            0.,
-            height,
-            -1.,
-            1.,
-        );
+        let projection = Mat4::orthographic_lh(0., width, 0., height, -1., 1.);
 
         for (i, image) in self.images.iter().enumerate() {
             let uniform = image.build_uniform(projection);
@@ -326,8 +352,10 @@ impl Gui {
         }
 
         for (i, button) in self.buttons.iter().enumerate() {
-            let background_uniform = button.build_background_uniform(projection, Some(i) == self.hovered_button_index);
-            self.uniform_storage.set_element(0, self.images.len() + i, background_uniform);
+            let background_uniform =
+                button.build_background_uniform(projection, Some(i) == self.hovered_button_index);
+            self.uniform_storage
+                .set_element(0, self.images.len() + i, background_uniform);
 
             let text_uniform = button.build_text_mvp(&projection).to_cols_array();
             self.uniform_storage.set_element(1, i, text_uniform);
@@ -343,7 +371,7 @@ impl Gui {
         for (i, button) in self.buttons.iter().enumerate() {
             if button.contains_point(mouse_x, mouse_y) {
                 hovered_index = Some(i);
-                break
+                break;
             }
         }
 
@@ -353,50 +381,71 @@ impl Gui {
         }
     }
 
-    pub fn handle_click(&mut self, _gpu: &GpuWrapper, state: ElementState, position: PhysicalPosition<f32>) -> Option<usize> {
+    pub fn handle_click(
+        &mut self,
+        _gpu: &GpuWrapper,
+        state: ElementState,
+        position: PhysicalPosition<f32>,
+    ) -> Option<usize> {
         let mut clicked_index = None;
         for (i, button) in self.buttons.iter().enumerate() {
             if button.contains_point(position.x, position.y) {
                 clicked_index = Some(i);
-                break
+                break;
             }
         }
-        
+
         match state {
             ElementState::Pressed => {
                 self.clicking_button_index = clicked_index;
-            },
+            }
             ElementState::Released => {
                 if self.clicking_button_index == clicked_index {
                     self.clicking_button_index = None;
-                    return clicked_index
+                    return clicked_index;
                 }
-            },
+            }
         }
 
         None
     }
 
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, resources: &'a GuiResources) {
+    pub fn render<'a>(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        resources: &'a GuiResources,
+    ) {
         render_pass.set_pipeline(&resources.sprite_pipeline);
         for image in &self.images {
             render_pass.set_bind_group(0, &image.texture, &[]);
             image.mesh.bind(render_pass);
-            render_pass.set_bind_group(1, self.uniform_storage.bind_group(0), &[image.uniform_offset]);
+            render_pass.set_bind_group(
+                1,
+                self.uniform_storage.bind_group(0),
+                &[image.uniform_offset],
+            );
             image.mesh.draw(render_pass);
         }
 
         render_pass.set_bind_group(0, &resources.gui_texture, &[]);
         resources.gui_button_large.bind(render_pass);
         for button in &self.buttons {
-            render_pass.set_bind_group(1, self.uniform_storage.bind_group(0), &[button.button_uniform_offset]);
+            render_pass.set_bind_group(
+                1,
+                self.uniform_storage.bind_group(0),
+                &[button.button_uniform_offset],
+            );
             resources.gui_button_large.draw(render_pass);
         }
 
         render_pass.set_pipeline(&resources.font_pipeline);
         render_pass.set_bind_group(0, &resources.font_texture, &[]);
         for button in &self.buttons {
-            render_pass.set_bind_group(1, self.uniform_storage.bind_group(1), &[button.text_uniform_offset]);
+            render_pass.set_bind_group(
+                1,
+                self.uniform_storage.bind_group(1),
+                &[button.text_uniform_offset],
+            );
             button.baked_text.bind(render_pass);
             button.baked_text.draw(render_pass);
         }
@@ -411,7 +460,8 @@ pub(super) struct FontVertex {
     pub(super) color: [f32; 3],
 }
 
-const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
+const ATTRIBS: [wgpu::VertexAttribute; 3] =
+    wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
 
 impl crate::gpu::VertexAttribues for FontVertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
@@ -426,7 +476,8 @@ pub struct SpriteVertex {
     pub uv: [f32; 2],
 }
 
-const SPRITE_VERTEX_ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+const SPRITE_VERTEX_ATTRIBS: [wgpu::VertexAttribute; 2] =
+    wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
 
 impl crate::gpu::VertexAttribues for SpriteVertex {
     fn attributes() -> &'static [wgpu::VertexAttribute] {
