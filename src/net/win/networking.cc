@@ -9,7 +9,7 @@ using namespace simulo;
 
 namespace {
 
-template <typename T> std::runtime_error CreateFuncError(const std::string &func_name, T err_code) {
+template <typename T> std::runtime_error create_func_error(const std::string &func_name, T err_code) {
    auto err_msg = func_name + " failed: " + std::to_string(err_code);
    return std::runtime_error(err_msg);
 }
@@ -20,17 +20,17 @@ Networking::Networking(std::uint16_t port) : overlapped_() {
    WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
    if (startup_res != 0) {
-      throw CreateFuncError("WSAStartup", startup_res);
+      throw create_func_error("WSAStartup", startup_res);
    }
 
    completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
    if (completion_port_ == nullptr) {
-      throw CreateFuncError("CreateIOCompletionPort", GetLastError());
+      throw create_func_error("CreateIOCompletionPort", GetLastError());
    }
 
    listen_socket_ = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_ == INVALID_SOCKET) {
-      throw CreateFuncError("socket", WSAGetLastError());
+      throw create_func_error("socket", WSAGetLastError());
    }
 
    SOCKADDR_IN bind_addr;
@@ -39,19 +39,19 @@ Networking::Networking(std::uint16_t port) : overlapped_() {
    bind_addr.sin_port = htons(port);
    if (bind(listen_socket_, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr)) ==
        SOCKET_ERROR) {
-      throw CreateFuncError("bind", WSAGetLastError());
+      throw create_func_error("bind", WSAGetLastError());
    }
 }
 
-void Networking::Listen() {
-   if (listen(listen_socket_, 16) == SOCKET_ERROR) {
-      throw CreateFuncError("listen", WSAGetLastError());
+void Networking::listen() {
+   if (::listen(listen_socket_, 16) == SOCKET_ERROR) {
+      throw create_func_error("listen", WSAGetLastError());
    }
 
    HANDLE listen_port = CreateIoCompletionPort(reinterpret_cast<HANDLE>(listen_socket_),
                                                completion_port_, 0xCafeBabeULL, 0);
    if (listen_port == nullptr) {
-      throw CreateFuncError("CreateIOCompletionPort", GetLastError());
+      throw create_func_error("CreateIOCompletionPort", GetLastError());
    }
 
    SOCKET accepted = socket(AF_INET, SOCK_STREAM, 0);
@@ -63,7 +63,7 @@ void Networking::Listen() {
    }
 }
 
-void Networking::Poll() const {
+void Networking::poll() const {
    DWORD len;
    unsigned long long key;
    WSAOVERLAPPED *overlapped;

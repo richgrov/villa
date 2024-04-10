@@ -10,8 +10,8 @@ class Networking {
 public:
    explicit Networking(std::uint16_t port);
 
-   void Listen();
-   void Poll() const;
+   void listen();
+   void poll() const;
 
 private:
    // AcceptEx requires length of address to be at least 16 bytes more than its
