@@ -11,4 +11,4 @@
 
 #endif // non-windows
 
-#endif // SIMULO_NET_NETWORKING_H_
+#endif // !SIMULO_NET_NETWORKING_H_

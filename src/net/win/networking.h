@@ -26,4 +26,4 @@ private:
 
 } // namespace simulo
 
-#endif // SIMULO_NET_WIN_NETWORKING_H_
+#endif // !SIMULO_NET_WIN_NETWORKING_H_
