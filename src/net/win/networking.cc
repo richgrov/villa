@@ -5,6 +5,8 @@
 
 #include <MSWSock.h>
 
+#include "util/debug_assert.h"
+
 using namespace simulo;
 
 namespace {
@@ -49,37 +51,46 @@ void Networking::listen() {
       throw create_func_error("listen", WSAGetLastError());
    }
 
-   HANDLE listen_port = CreateIoCompletionPort(reinterpret_cast<HANDLE>(listen_socket_),
-                                               completion_port_, 0xCafeBabeULL, 0);
+   HANDLE listen_port =
+       CreateIoCompletionPort(reinterpret_cast<HANDLE>(listen_socket_), completion_port_, 0, 0);
+
    if (listen_port == nullptr) {
       throw create_func_error("CreateIOCompletionPort", GetLastError());
    }
 
-   SOCKET accepted = socket(AF_INET, SOCK_STREAM, 0);
-
-   bool success = AcceptEx(listen_socket_, accepted, accept_buf_, 0, kAddressLen, kAddressLen,
-                           nullptr, &overlapped_);
-   if (!success && WSAGetLastError() != ERROR_IO_PENDING) {
-      abort();
-   }
+   accept();
 }
 
-void Networking::poll() const {
+void Networking::poll() {
    DWORD len;
-   unsigned long long key;
+   ULONG_PTR completion_key;
    WSAOVERLAPPED *overlapped;
 
    while (true) {
-      bool has_messages =
-          GetQueuedCompletionStatus(completion_port_, &len, (PULONG_PTR)&key, &overlapped, 0);
-      if (!has_messages) {
+      bool op_success =
+          GetQueuedCompletionStatus(completion_port_, &len, &completion_key, &overlapped, 0);
+
+      bool no_more_completions = overlapped == nullptr;
+      if (no_more_completions) {
          break;
       }
 
-      if (key == 0xCafeBabeULL) {
-         std::cout << "It worked!\n";
+      if (op_success) {
+         std::cout << "Accepted socket ID " << accepted_socket_ << "\n";
       } else {
-         std::cout << "It failed!\n";
+         std::cout << "Failed to accept ID " << accepted_socket_ << ". Error: " << GetLastError()
+                   << "\n";
       }
+
+      accept();
    }
+}
+
+void Networking::accept() {
+   accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
+   bool success = AcceptEx(listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen,
+                           kAddressLen, nullptr, &overlapped_);
+
+   int err = WSAGetLastError();
+   SIMULO_DEBUG_ASSERT(success || err == ERROR_IO_PENDING, "Abnormal error from AcceptEx: {}", err);
 }
