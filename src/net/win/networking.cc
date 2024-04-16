@@ -9,7 +9,8 @@ using namespace simulo;
 
 namespace {
 
-template <typename T> std::runtime_error create_func_error(const std::string &func_name, T err_code) {
+template <typename T>
+std::runtime_error create_func_error(const std::string &func_name, T err_code) {
    auto err_msg = func_name + " failed: " + std::to_string(err_code);
    return std::runtime_error(err_msg);
 }
