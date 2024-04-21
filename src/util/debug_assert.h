@@ -23,4 +23,8 @@
 
 #endif // !NDEBUG
 
+#define SIMULO_PANIC(fmt, ...)                                                                     \
+   std::cerr << __FILE__ << ":" << __LINE__ << ": " << std::format(fmt, __VA_ARGS__) << "\n";      \
+   std::exit(1)
+
 #endif // !SIMULO_UTIL_DEBUG_ASSERT_H_
