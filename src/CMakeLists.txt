@@ -22,7 +22,7 @@ add_executable(simulo
 target_include_directories(simulo PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
 if (WIN32)
-   target_link_libraries(simulo Ws2_32.lib Mswsock.lib)
+   target_link_libraries(simulo Ws2_32.lib)
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

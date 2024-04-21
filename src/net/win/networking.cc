@@ -33,6 +33,18 @@ void close_or_log_error(SOCKET socket) {
 #endif
 }
 
+void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
+   GUID accept_ex_guid = WSAID_ACCEPTEX;
+   DWORD unused;
+   int load_result =
+       WSAIoctl(listener, SIO_GET_EXTENSION_FUNCTION_POINTER, &accept_ex_guid,
+                sizeof(accept_ex_guid), fn, sizeof(LPFN_ACCEPTEX), &unused, nullptr, nullptr);
+
+   if (load_result == SOCKET_ERROR) {
+      throw create_func_error("WSAIoctl", WSAGetLastError());
+   }
+}
+
 constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
@@ -56,6 +68,8 @@ Networking::Networking(const std::uint16_t port)
    if (listen_socket_ == INVALID_SOCKET) {
       throw create_func_error("socket", WSAGetLastError());
    }
+
+   load_accept_ex(listen_socket_, &accept_ex_);
 
    SOCKADDR_IN bind_addr;
    bind_addr.sin_family = AF_INET;
@@ -113,8 +127,8 @@ void Networking::poll() {
 
 void Networking::accept() {
    accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-   BOOL success = AcceptEx(listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen,
-                           kAddressLen, nullptr, &overlapped_);
+   BOOL success = accept_ex_(listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen,
+                             kAddressLen, nullptr, &overlapped_);
 
    if (!success) {
       int err = WSAGetLastError();

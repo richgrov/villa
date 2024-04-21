@@ -6,6 +6,9 @@
 
 #include <WinSock2.h>
 #include <minwinbase.h>
+// clang-format off
+#include <MSWSock.h>
+// clang-format on
 
 #include "protocol/packets.h"
 #include "util/slab.h"
@@ -61,6 +64,7 @@ private:
 
    using ConnectionSlab = Slab<Connection, 256>;
    std::unique_ptr<Slab<Connection, 256>> connections_;
+   LPFN_ACCEPTEX accept_ex_;
    HANDLE root_completion_port_;
    SOCKET listen_socket_;
    SOCKET accepted_socket_;
