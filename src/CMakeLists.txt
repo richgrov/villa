@@ -10,6 +10,9 @@ add_executable(simulo
     
    "net/networking.h"
 
+   "protocol/types.cc"
+   "protocol/types.h"
+
    "util/slab.h"
    ${OS_SPECIFIC_FILES}
 )
