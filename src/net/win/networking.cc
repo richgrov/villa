@@ -1,11 +1,15 @@
 #include "networking.h"
 
+#include <WinSock2.h>
+#include <array>
 #include <iostream>
 #include <string>
 
 #include <MSWSock.h>
 
+#include "protocol/packets.h"
 #include "util/debug_assert.h"
+#include "util/slab.h"
 
 using namespace simulo;
 
@@ -17,17 +21,34 @@ std::runtime_error create_func_error(const std::string &func_name, T err_code) {
    return std::runtime_error(err_msg);
 }
 
+void close_or_log_error(SOCKET socket) {
+   if (closesocket(socket) != SOCKET_ERROR) {
+      return;
+   }
+
+#ifdef NDEBUG
+   std::cerr << "Failed to close socket " << socket << ": " << WSAGetLastError() << "\n";
+#else
+   SIMULO_PANIC("Failed to close socket {}: {}", socket, WSAGetLastError());
+#endif
+}
+
+constexpr ULONG_PTR kListenerCompletionKey = -1;
+
 } // namespace
 
-Networking::Networking(std::uint16_t port) : overlapped_() {
+Networking::Networking(const std::uint16_t port)
+    : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
+      overlapped_{} {
+
    WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
    if (startup_res != 0) {
       throw create_func_error("WSAStartup", startup_res);
    }
 
-   completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-   if (completion_port_ == nullptr) {
+   root_completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
+   if (root_completion_port_ == nullptr) {
       throw create_func_error("CreateIOCompletionPort", GetLastError());
    }
 
@@ -51,8 +72,8 @@ void Networking::listen() {
       throw create_func_error("listen", WSAGetLastError());
    }
 
-   HANDLE listen_port =
-       CreateIoCompletionPort(reinterpret_cast<HANDLE>(listen_socket_), completion_port_, 0, 0);
+   HANDLE listen_port = CreateIoCompletionPort(reinterpret_cast<HANDLE>(listen_socket_),
+                                               root_completion_port_, kListenerCompletionKey, 0);
 
    if (listen_port == nullptr) {
       throw create_func_error("CreateIOCompletionPort", GetLastError());
@@ -67,30 +88,140 @@ void Networking::poll() {
    WSAOVERLAPPED *overlapped;
 
    while (true) {
-      bool op_success =
-          GetQueuedCompletionStatus(completion_port_, &len, &completion_key, &overlapped, 0);
+      BOOL op_success =
+          GetQueuedCompletionStatus(root_completion_port_, &len, &completion_key, &overlapped, 0);
 
       bool no_more_completions = overlapped == nullptr;
       if (no_more_completions) {
          break;
       }
 
-      if (op_success) {
-         std::cout << "Accepted socket ID " << accepted_socket_ << "\n";
+      bool accepted_new_connection = completion_key == kListenerCompletionKey;
+      if (accepted_new_connection) {
+         handle_accept(op_success);
       } else {
-         std::cout << "Failed to accept ID " << accepted_socket_ << ". Error: " << GetLastError()
-                   << "\n";
-      }
+         auto *with_op = reinterpret_cast<OverlappedWithOp *>(overlapped);
 
-      accept();
+         switch (with_op->op) {
+         case kRead:
+            handle_read(op_success, static_cast<int>(completion_key), len);
+            break;
+         }
+      }
    }
 }
 
 void Networking::accept() {
    accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-   bool success = AcceptEx(listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen,
+   BOOL success = AcceptEx(listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen,
                            kAddressLen, nullptr, &overlapped_);
 
-   int err = WSAGetLastError();
-   SIMULO_DEBUG_ASSERT(success || err == ERROR_IO_PENDING, "Abnormal error from AcceptEx: {}", err);
+   if (!success) {
+      int err = WSAGetLastError();
+      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "Abnormal error from AcceptEx: {}", err);
+   }
+}
+
+void Networking::handle_accept(const bool success) {
+   if (!success) {
+      std::cerr << "Failed to accept " << accepted_socket_ << ": " << GetLastError() << "\n";
+      close_or_log_error(accepted_socket_);
+      return;
+   }
+
+   int key;
+   {
+      Connection conn;
+      conn.socket = accepted_socket_;
+
+      key = connections_->insert(std::move(conn));
+      if (key == kInvalidSlabKey) {
+         std::cerr << "Out of connection objects for " << accepted_socket_ << "\n";
+         close_or_log_error(accepted_socket_);
+         return;
+      }
+   }
+
+   HANDLE client_completion_port =
+       CreateIoCompletionPort(reinterpret_cast<HANDLE>(accepted_socket_), root_completion_port_,
+                              static_cast<ULONG_PTR>(key), 0);
+
+   if (client_completion_port == nullptr) {
+      std::cerr << "Failed to create completion port for " << accepted_socket_ << ": "
+                << GetLastError() << "\n";
+
+      connections_->release(key);
+      close_or_log_error(accepted_socket_);
+      return;
+   }
+
+   Connection &conn = connections_->get(key);
+   read(conn);
+   accept();
+}
+
+void Networking::read(Connection &conn) {
+   WSABUF buf;
+   buf.buf = reinterpret_cast<CHAR *>(&conn.buf[conn.used]);
+   buf.len = sizeof(conn.buf) - conn.used;
+   std::cout << (std::size_t)buf.buf << "\n";
+
+   DWORD flags = 0;
+   int result = WSARecv(conn.socket, &buf, 1, nullptr, &flags, &conn.overlapped, nullptr);
+
+   if (result == SOCKET_ERROR) {
+      int err = WSAGetLastError();
+      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = {}", err);
+   }
+}
+
+void Networking::handle_read(const bool op_success, const int connection_key,
+                             const DWORD len) const {
+   Connection &conn = connections_->get(connection_key);
+
+   if (!op_success) {
+      std::cerr << "Read failed for " << conn.socket << ": " << GetLastError() << "\n";
+   }
+
+   if (len < 1) {
+      std::cerr << "EOF for " << conn.socket << "\n";
+      close_or_log_error(conn.socket);
+      connections_->release(connection_key);
+      return;
+   }
+
+   conn.used += len;
+   if (conn.used < conn.target_buf_len) {
+      read(conn);
+      return;
+   }
+
+   std::cout << GetLastError() << " " << WSAGetLastError() << "\n";
+
+   switch (conn.read_stage) {
+   case kHandshake:
+      ReadResult result = conn.handshake_packet.read(conn.buf, conn.used, conn.read_stage);
+      switch (result.min_remaining_bytes) {
+      case -1:
+         std::cerr << "Failed to read handshake for " << conn.socket << "\n";
+         close_or_log_error(conn.socket);
+         connections_->release(connection_key);
+         break;
+
+      case 0:
+         std::cout << "Finished: " << conn.handshake_packet.username_len << "\n";
+         close_or_log_error(conn.socket);
+         connections_->release(connection_key);
+         break;
+
+      default:
+         SIMULO_DEBUG_ASSERT(result.min_remaining_bytes > 0, "remaining = {}, stage = {}",
+                             result.min_remaining_bytes, result.progress);
+         conn.target_buf_len = static_cast<unsigned int>(result.min_remaining_bytes);
+         conn.packet_read_state = result.progress;
+         read(conn);
+         break;
+      }
+      break;
+   }
 }

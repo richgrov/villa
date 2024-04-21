@@ -10,6 +10,8 @@ add_executable(simulo
     
    "net/networking.h"
 
+   "protocol/packets.cc"
+   "protocol/packets.h"
    "protocol/types.cc"
    "protocol/types.h"
 
