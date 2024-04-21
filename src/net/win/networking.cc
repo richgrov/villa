@@ -1,11 +1,11 @@
 #include "networking.h"
 
-#include <WinSock2.h>
 #include <array>
 #include <iostream>
 #include <string>
 
 #include <MSWSock.h>
+#include <WinSock2.h>
 
 #include "protocol/packets.h"
 #include "util/debug_assert.h"
