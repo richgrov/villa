@@ -3,6 +3,9 @@
 
 #include "debug_assert.h"
 
+#include <algorithm>
+#include <utility>
+
 namespace simulo {
 
 static constexpr int kInvalidSlabKey = -1;
@@ -14,52 +17,94 @@ public:
 
       for (int i = 0; i < Length; ++i) {
          if (i == Length - 1) {
-            objects_[i].next = kInvalidSlabKey;
+            get_storage(i).store_next(kInvalidSlabKey);
          } else {
-            objects_[i].next = i + 1;
+            get_storage(i).store_next(i + 1);
+         }
+      }
+   }
+
+   ~Slab() {
+      bool in_use[Length];
+      std::fill_n(in_use, Length, true);
+
+      int next_available = next_available_;
+      while (next_available != kInvalidSlabKey) {
+         in_use[next_available] = false;
+         next_available = get_storage(next_available).next();
+      }
+
+      for (int i = 0; i < Length; ++i) {
+         if (in_use[i]) {
+            release(i);
          }
       }
    }
 
    [[nodiscard]] T &get(const int index) {
-      return get_cell(index).value;
+      return get_storage(index).value();
    }
 
    /**
     * Returns `kInvalidSlabKey` if allocation fails
     */
-   int insert(const T value) {
+   template <class... Args> int emplace(Args &&...args) {
       if (next_available_ == kInvalidSlabKey) {
          return kInvalidSlabKey;
       }
 
       int key = next_available_;
-      auto &cell = get_cell(key);
-      next_available_ = cell.next;
-      cell.value = value;
+      auto &storage = get_storage(key);
+      next_available_ = storage.next();
+      storage.store_value(std::forward<Args>(args)...);
       return key;
    }
 
    void release(const int key) {
-      get_cell(key).next = next_available_;
+      auto &storage = get_storage(key);
+      storage.call_value_destructor();
+      storage.store_next(next_available_);
       next_available_ = key;
    }
 
 private:
-   union Cell {
-      int next;
-      T value;
+   struct Storage {
+      static constexpr std::size_t kSize = std::max({sizeof(int), sizeof(T)});
+      static constexpr std::size_t kAlign = std::max({alignof(int), alignof(T)});
+      alignas(kAlign) unsigned char storage[kSize];
 
-      Cell() : next(0) {}
+      int next() {
+         auto ptr = reinterpret_cast<int *>(&storage);
+         return *ptr;
+      }
+
+      void store_next(const int next) {
+         auto ptr = reinterpret_cast<int *>(&storage);
+         *ptr = next;
+      }
+
+      template <class... Args> void store_value(Args &&...args) {
+         new (&storage) T(std::forward<Args>(args)...);
+      }
+
+      T &value() {
+         auto ptr = reinterpret_cast<T *>(&storage);
+         return *ptr;
+      }
+
+      void call_value_destructor() {
+         auto ptr = reinterpret_cast<T *>(&storage);
+         ptr->T::~T();
+      }
    };
 
-   Cell &get_cell(const int index) {
+   Storage &get_storage(const int index) {
       SIMULO_DEBUG_ASSERT(index >= 0 && index < Length, "index {} out of slab range {}", index,
                           Length);
       return objects_[index];
    }
 
-   Cell objects_[Length];
+   Storage objects_[Length];
    int next_available_;
 };
 

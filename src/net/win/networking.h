@@ -52,9 +52,8 @@ private:
       unsigned int used;
       unsigned int target_buf_len;
 
-      Connection()
-          : socket(INVALID_SOCKET), overlapped{}, read_stage(kHandshake), packet_read_state(0),
-            handshake_packet(), used(0), target_buf_len(1) {}
+      Connection(SOCKET socket);
+      ~Connection();
    };
 
    void accept();

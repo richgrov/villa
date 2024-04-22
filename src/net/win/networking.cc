@@ -49,6 +49,14 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
+Networking::Connection::Connection(const SOCKET s)
+    : socket(s), overlapped{}, read_stage(kHandshake), packet_read_state(0), handshake_packet(),
+      used(0), target_buf_len(1) {}
+
+Networking::Connection::~Connection() {
+   close_or_log_error(socket);
+}
+
 Networking::Networking(const std::uint16_t port)
     : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
       overlapped_{} {
@@ -145,31 +153,30 @@ void Networking::handle_accept(const bool success) {
 
    int key;
    {
-      Connection conn;
-      conn.socket = accepted_socket_;
-
-      key = connections_->insert(std::move(conn));
+      key = connections_->emplace(accepted_socket_);
       if (key == kInvalidSlabKey) {
          std::cerr << "Out of connection objects for " << accepted_socket_ << "\n";
          close_or_log_error(accepted_socket_);
          return;
       }
-   }
 
-   HANDLE client_completion_port =
-       CreateIoCompletionPort(reinterpret_cast<HANDLE>(accepted_socket_), root_completion_port_,
-                              static_cast<ULONG_PTR>(key), 0);
-
-   if (client_completion_port == nullptr) {
-      std::cerr << "Failed to create completion port for " << accepted_socket_ << ": "
-                << GetLastError() << "\n";
-
-      connections_->release(key);
-      close_or_log_error(accepted_socket_);
-      return;
+      accepted_socket_ = INVALID_SOCKET;
    }
 
    Connection &conn = connections_->get(key);
+
+   HANDLE client_completion_port =
+       CreateIoCompletionPort(reinterpret_cast<HANDLE>(conn.socket), root_completion_port_,
+                              static_cast<ULONG_PTR>(key), 0);
+
+   if (client_completion_port == nullptr) {
+      std::cerr << "Failed to create completion port for " << conn.socket << ": " << GetLastError()
+                << "\n";
+
+      connections_->release(key);
+      return;
+   }
+
    read(conn);
    accept();
 }
@@ -194,11 +201,11 @@ void Networking::handle_read(const bool op_success, const int connection_key,
 
    if (!op_success) {
       std::cerr << "Read failed for " << conn.socket << ": " << GetLastError() << "\n";
+      connections_->release(connection_key);
    }
 
    if (len < 1) {
       std::cerr << "EOF for " << conn.socket << "\n";
-      close_or_log_error(conn.socket);
       connections_->release(connection_key);
       return;
    }
@@ -215,12 +222,10 @@ void Networking::handle_read(const bool op_success, const int connection_key,
       switch (result.min_remaining_bytes) {
       case -1:
          std::cerr << "Failed to read handshake for " << conn.socket << "\n";
-         close_or_log_error(conn.socket);
          connections_->release(connection_key);
          break;
 
       case 0:
-         close_or_log_error(conn.socket);
          std::cout << "Username is " << conn.handshake_packet.username_len << " characers long.\n";
          connections_->release(connection_key);
          break;
