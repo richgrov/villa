@@ -60,3 +60,72 @@ ReadResult Handshake::read(unsigned char *buf, std::size_t len, int progress) {
       SIMULO_PANIC("unreachable {}", progress);
    }
 }
+
+ReadResult Login::read(unsigned char *buf, std::size_t len, int progress) {
+   ReadResult result = {};
+   unsigned char *cursor = buf;
+
+   switch (progress) {
+   case 0:
+      if (*cursor != kId) {
+         result.min_remaining_bytes = -1;
+         return result;
+      }
+
+      result.progress = 1;
+
+   case 1:
+      if (len < kMinSize + 1) { // +1 for packet id
+         result.min_remaining_bytes = kMinSize - len;
+         return result;
+      }
+
+      result.progress = 2;
+
+   case 2:
+      cursor = buf + 1;
+
+      protocol_version = read_int(cursor);
+
+      cursor += sizeof(protocol_version);
+      username_len = read_string_header(cursor);
+      if (username_len < 1 || username_len > 16) {
+         result.min_remaining_bytes = -1;
+         return result;
+      }
+
+      result.progress = 2;
+
+   case 3:
+      // clang-format off
+      {
+         // clang-format on
+         std::size_t expected_size = 1 + required_size(username_len);
+         if (len < expected_size) {
+            result.min_remaining_bytes = expected_size - len;
+            return result;
+         }
+      }
+
+      result.progress = 4;
+
+   case 4:
+      cursor = buf + 1 + sizeof(protocol_version) + sizeof(username_len);
+
+      if (!read_string_data(cursor, username_len, username)) {
+         result.min_remaining_bytes = -1;
+         return result;
+      }
+
+      cursor += username_len * kCharSize;
+      map_seed = read_int(cursor);
+
+      cursor += sizeof(map_seed);
+      dimension = *cursor;
+
+      return result;
+
+   default:
+      SIMULO_PANIC("progress = {}", result.progress);
+   }
+}

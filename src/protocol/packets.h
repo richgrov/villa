@@ -24,9 +24,19 @@ struct Login {
    std::int64_t map_seed;
    UByte dimension;
 
-   static constexpr std::size_t kMaxSize =
-       sizeof(protocol_version) + string_size(16) + sizeof(map_seed) + sizeof(dimension);
+   static constexpr std::size_t required_size(std::size_t username_code_points) {
+      return sizeof(protocol_version) + string_size(username_code_points) + sizeof(map_seed) +
+             sizeof(dimension);
+   }
+
+   static const std::size_t kMinSize;
+   static const std::size_t kMaxSize;
+
+   ReadResult read(unsigned char *buf, std::size_t len, int progress);
 };
+
+inline constexpr std::size_t Login::kMinSize = Login::required_size(1);
+inline constexpr std::size_t Login::kMaxSize = Login::required_size(16);
 
 struct Handshake {
    static constexpr UByte kId = 2;

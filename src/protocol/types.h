@@ -26,7 +26,7 @@ inline StringSize read_string_header(const unsigned char *buf) {
 
 bool read_string_data(const unsigned char *buf, StringSize num_code_units, char16_t *dest);
 
-consteval std::size_t string_size(const std::size_t num_chars) {
+constexpr std::size_t string_size(const std::size_t num_chars) {
    return sizeof(StringSize) + (num_chars * kCharSize);
 }
 
