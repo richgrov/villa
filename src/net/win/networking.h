@@ -63,7 +63,7 @@ private:
    void accept();
    void handle_accept(bool success);
    static void read(Connection &conn);
-   void handle_read(bool op_success, int connection_key, DWORD len) const;
+   void handle_read(bool op_success, int connection_key, DWORD len);
    static void write(Connection &conn, const unsigned char *buf, unsigned int len);
    void handle_write(bool op_success, int connection_key, DWORD len) const;
 

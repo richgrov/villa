@@ -203,8 +203,7 @@ void Networking::read(Connection &conn) {
    }
 }
 
-void Networking::handle_read(const bool op_success, const int connection_key,
-                             const DWORD len) const {
+void Networking::handle_read(const bool op_success, const int connection_key, const DWORD len) {
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
