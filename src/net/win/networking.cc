@@ -178,7 +178,6 @@ void Networking::read(Connection &conn) {
    WSABUF buf;
    buf.buf = reinterpret_cast<CHAR *>(&conn.buf[conn.used]);
    buf.len = sizeof(conn.buf) - conn.used;
-   std::cout << (std::size_t)buf.buf << "\n";
 
    DWORD flags = 0;
    int result = WSARecv(conn.socket, &buf, 1, nullptr, &flags, &conn.overlapped, nullptr);
@@ -210,8 +209,6 @@ void Networking::handle_read(const bool op_success, const int connection_key,
       return;
    }
 
-   std::cout << GetLastError() << " " << WSAGetLastError() << "\n";
-
    switch (conn.read_stage) {
    case kHandshake:
       ReadResult result = conn.handshake_packet.read(conn.buf, conn.used, conn.read_stage);
@@ -223,8 +220,8 @@ void Networking::handle_read(const bool op_success, const int connection_key,
          break;
 
       case 0:
-         std::cout << "Finished: " << conn.handshake_packet.username_len << "\n";
          close_or_log_error(conn.socket);
+         std::cout << "Username is " << conn.handshake_packet.username_len << " characers long.\n";
          connections_->release(connection_key);
          break;
 
