@@ -57,6 +57,13 @@ Networking::Connection::~Connection() {
    close_or_log_error(socket);
 }
 
+void Networking::Connection::prep_read() {
+   overlapped.op = kRead;
+   packet_read_progress = 0;
+   used = 0;
+   target_buf_len = 1;
+}
+
 Networking::Networking(const std::uint16_t port)
     : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
       overlapped_{} {
@@ -225,26 +232,59 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
 
    switch (conn.read_stage) {
    case kHandshake:
-      ReadResult result = conn.handshake_packet.read(conn.buf, conn.used, conn.read_stage);
-      switch (result.min_remaining_bytes) {
-      case -1:
-         std::cerr << "Failed to read handshake for " << conn.socket << "\n";
-         connections_->release(connection_key);
-         break;
+      handle_read_handshake(connection_key, conn);
+      break;
 
-      case 0:
-         write(conn, packet::Handshake::kOfflineModeResponse,
-               sizeof(packet::Handshake::kOfflineModeResponse));
-         break;
+   case kLogin:
+      handle_read_login(connection_key, conn);
+      break;
+   }
+}
 
-      default:
-         SIMULO_DEBUG_ASSERT(result.min_remaining_bytes > 0, "remaining = {}, stage = {}",
-                             result.min_remaining_bytes, result.progress);
-         conn.target_buf_len = static_cast<unsigned int>(result.min_remaining_bytes);
-         conn.packet_read_progress = result.progress;
-         read(conn);
-         break;
-      }
+void Networking::handle_read_handshake(int connection_key, Connection &conn) {
+   ReadResult result = conn.handshake_packet.read(conn.buf, conn.used, conn.read_stage);
+   switch (result.min_remaining_bytes) {
+   case -1:
+      std::cerr << "Failed to read handshake for " << conn.socket << "\n";
+      connections_->release(connection_key);
+      break;
+
+   case 0:
+      write(conn, packet::Handshake::kOfflineModeResponse,
+            sizeof(packet::Handshake::kOfflineModeResponse));
+      break;
+
+   default:
+      SIMULO_DEBUG_ASSERT(result.min_remaining_bytes > 0, "remaining = {}, stage = {}",
+                          result.min_remaining_bytes, result.progress);
+      conn.target_buf_len = static_cast<unsigned int>(result.min_remaining_bytes);
+      conn.packet_read_progress = result.progress;
+      read(conn);
+      break;
+   }
+}
+
+void Networking::handle_read_login(int connection_key, Connection &conn) {
+   ReadResult result = conn.login_packet.read(conn.buf, conn.used, conn.read_stage);
+   switch (result.min_remaining_bytes) {
+   case -1:
+      std::cerr << "Failed to read login for " << conn.socket << "\n";
+      connections_->release(connection_key);
+      break;
+
+   case 0:
+      std::cout << "UL: " << conn.login_packet.username_len
+                << ", PV: " << conn.login_packet.protocol_version << "\n";
+      connections_->release(connection_key);
+      break;
+
+   default:
+      SIMULO_DEBUG_ASSERT(result.min_remaining_bytes > 0, "remaining = {}, stage = {}",
+                          result.min_remaining_bytes, result.progress);
+
+      conn.target_buf_len = static_cast<unsigned int>(result.min_remaining_bytes);
+      conn.packet_read_progress = result.progress;
+      read(conn);
       break;
    }
 }
@@ -284,5 +324,10 @@ void Networking::handle_write(const bool op_success, const int connection_key,
    }
 
    std::cout << "Username is " << conn.handshake_packet.username_len << " characters long.\n";
-   connections_->release(connection_key);
+
+   conn.prep_read();
+   conn.read_stage = kLogin;
+   conn.login_packet = {};
+   conn.target_buf_len = packet::Login::kMinSize + 1; // +1 for packet id
+   read(conn);
 }

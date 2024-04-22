@@ -38,6 +38,7 @@ private:
 
    enum LoginReadStage {
       kHandshake,
+      kLogin,
    };
 
    struct Connection {
@@ -58,12 +59,16 @@ private:
 
       Connection(SOCKET socket);
       ~Connection();
+
+      void prep_read();
    };
 
    void accept();
    void handle_accept(bool success);
    static void read(Connection &conn);
    void handle_read(bool op_success, int connection_key, DWORD len);
+   void handle_read_handshake(int connection_key, Connection &conn);
+   void handle_read_login(int connection_key, Connection &conn);
    static void write(Connection &conn, const unsigned char *buf, unsigned int len);
    void handle_write(bool op_success, int connection_key, DWORD len) const;
 
