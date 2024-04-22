@@ -50,7 +50,7 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 Networking::Connection::Connection(const SOCKET s)
-    : socket(s), overlapped{}, read_stage(kHandshake), packet_read_state(0), handshake_packet(),
+    : socket(s), overlapped{}, read_stage(kHandshake), packet_read_progress(0), handshake_packet(),
       used(0), target_buf_len(1) {}
 
 Networking::Connection::~Connection() {
@@ -241,7 +241,7 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
          SIMULO_DEBUG_ASSERT(result.min_remaining_bytes > 0, "remaining = {}, stage = {}",
                              result.min_remaining_bytes, result.progress);
          conn.target_buf_len = static_cast<unsigned int>(result.min_remaining_bytes);
-         conn.packet_read_state = result.progress;
+         conn.packet_read_progress = result.progress;
          read(conn);
          break;
       }

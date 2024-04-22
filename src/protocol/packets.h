@@ -35,7 +35,7 @@ struct Handshake {
    StringSize username_len;
    char16_t username[16];
 
-   ReadResult read(unsigned char *buf, std::size_t len, int stage);
+   ReadResult read(unsigned char *buf, std::size_t len, int progress);
 };
 
 } // namespace packet

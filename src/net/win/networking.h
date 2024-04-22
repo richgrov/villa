@@ -44,7 +44,7 @@ private:
       SOCKET socket;
       OverlappedWithOp overlapped;
       LoginReadStage read_stage;
-      int packet_read_state;
+      int packet_read_progress;
       union {
          packet::Handshake handshake_packet;
          packet::Login login_packet;
