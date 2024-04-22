@@ -128,6 +128,9 @@ void Networking::poll() {
          case kRead:
             handle_read(op_success, static_cast<int>(completion_key), len);
             break;
+
+         default:
+            SIMULO_PANIC("op = {}", enum_ordinal(with_op->op));
          }
       }
    }
