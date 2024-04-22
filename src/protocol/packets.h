@@ -20,7 +20,7 @@ struct Login {
 
    std::int32_t protocol_version;
    StringSize username_len;
-   char16_t username[16]; // null-terminated
+   char16_t username[16];
    std::int64_t map_seed;
    UByte dimension;
 
