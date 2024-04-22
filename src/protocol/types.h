@@ -13,6 +13,10 @@ inline std::int16_t read_short(const unsigned char *buf) {
    return (buf[0] << 8) | buf[1];
 }
 
+inline std::int32_t read_int(const unsigned char *buf) {
+   return (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+}
+
 using StringSize = std::int16_t;
 constexpr std::size_t kCharSize = 2;
 
