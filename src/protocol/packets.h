@@ -30,6 +30,7 @@ struct Login {
 
 struct Handshake {
    static constexpr UByte kId = 2;
+   static constexpr unsigned char kOfflineModeResponse[] = {kId, 0, 1, 0, '-'};
 
    StringSize username_len;
    char16_t username[16];

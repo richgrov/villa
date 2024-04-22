@@ -123,10 +123,15 @@ void Networking::poll() {
          handle_accept(op_success);
       } else {
          auto *with_op = reinterpret_cast<OverlappedWithOp *>(overlapped);
+         int conn_key = static_cast<int>(completion_key);
 
          switch (with_op->op) {
          case kRead:
-            handle_read(op_success, static_cast<int>(completion_key), len);
+            handle_read(op_success, conn_key, len);
+            break;
+
+         case kWrite:
+            handle_write(op_success, conn_key, len);
             break;
 
          default:
@@ -229,8 +234,8 @@ void Networking::handle_read(const bool op_success, const int connection_key,
          break;
 
       case 0:
-         std::cout << "Username is " << conn.handshake_packet.username_len << " characers long.\n";
-         connections_->release(connection_key);
+         write(conn, packet::Handshake::kOfflineModeResponse,
+               sizeof(packet::Handshake::kOfflineModeResponse));
          break;
 
       default:
@@ -243,4 +248,42 @@ void Networking::handle_read(const bool op_success, const int connection_key,
       }
       break;
    }
+}
+
+void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {
+   WSABUF buf;
+   // Buffer is read-only- safe to const_cast
+   buf.buf = const_cast<CHAR *>(reinterpret_cast<const CHAR *>(data));
+   buf.len = len;
+
+   conn.overlapped.op = kWrite;
+   conn.expected_write_amount = len;
+
+   int result = WSASend(conn.socket, &buf, 1, nullptr, 0, &conn.overlapped, nullptr);
+   if (result == SOCKET_ERROR) {
+      int err = WSAGetLastError();
+      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = {}", err);
+   }
+}
+
+void Networking::handle_write(const bool op_success, const int connection_key,
+                              const DWORD len) const {
+   Connection &conn = connections_->get(connection_key);
+
+   if (!op_success) {
+      std::cerr << "Write failed for " << conn.socket << ": " << GetLastError() << "\n";
+      connections_->release(connection_key);
+   }
+
+   // Although not official, WSASend has never been observed to partially complete unless the socket
+   // loses connection. Keep things simple by asserting that the operation should fully complete.
+   if (len < conn.expected_write_amount) {
+      std::cerr << "Only wrote " << len << " bytes to " << conn.socket << " instead of "
+                << conn.expected_write_amount << "\n";
+      connections_->release(connection_key);
+      return;
+   }
+
+   std::cout << "Username is " << conn.handshake_packet.username_len << " characters long.\n";
+   connections_->release(connection_key);
 }

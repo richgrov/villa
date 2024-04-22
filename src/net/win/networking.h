@@ -29,6 +29,7 @@ private:
 
    enum Operation {
       kRead,
+      kWrite,
    };
 
    struct OverlappedWithOp : OVERLAPPED {
@@ -49,7 +50,10 @@ private:
          packet::Login login_packet;
       };
       unsigned char buf[packet::Login::kMaxSize + 1]; // +1 for packet id
-      unsigned int used;
+      union {
+         unsigned int used;
+         unsigned int expected_write_amount;
+      };
       unsigned int target_buf_len;
 
       Connection(SOCKET socket);
@@ -60,6 +64,8 @@ private:
    void handle_accept(bool success);
    static void read(Connection &conn);
    void handle_read(bool op_success, int connection_key, DWORD len) const;
+   static void write(Connection &conn, const unsigned char *buf, unsigned int len);
+   void handle_write(bool op_success, int connection_key, DWORD len) const;
 
    using ConnectionSlab = Slab<Connection, 256>;
    std::unique_ptr<Slab<Connection, 256>> connections_;
