@@ -26,11 +26,7 @@ void close_or_log_error(SOCKET socket) {
       return;
    }
 
-#ifdef NDEBUG
-   std::cerr << "Failed to close socket " << socket << ": " << WSAGetLastError() << "\n";
-#else
-   SIMULO_PANIC("Failed to close socket {}: {}", socket, WSAGetLastError());
-#endif
+   SIMULO_PANIC("Failed to close {}: {}", socket, WSAGetLastError());
 }
 
 void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
@@ -161,7 +157,7 @@ void Networking::accept() {
 
 void Networking::handle_accept(const bool success) {
    if (!success) {
-      std::cerr << "Failed to accept " << accepted_socket_ << ": " << GetLastError() << "\n";
+      SIMULO_DEBUG_LOG("Failed to accept {}: {}", accepted_socket_, GetLastError());
       close_or_log_error(accepted_socket_);
       return;
    }
@@ -170,7 +166,7 @@ void Networking::handle_accept(const bool success) {
    {
       key = connections_->emplace(accepted_socket_);
       if (key == kInvalidSlabKey) {
-         std::cerr << "Out of connection objects for " << accepted_socket_ << "\n";
+         SIMULO_DEBUG_LOG("Out of connection objects for {}", accepted_socket_)
          close_or_log_error(accepted_socket_);
          return;
       }
@@ -185,8 +181,7 @@ void Networking::handle_accept(const bool success) {
                               static_cast<ULONG_PTR>(key), 0);
 
    if (client_completion_port == nullptr) {
-      std::cerr << "Failed to create completion port for " << conn.socket << ": " << GetLastError()
-                << "\n";
+      SIMULO_DEBUG_LOG("Failed to create completion port for {}: {}", conn.socket, GetLastError());
 
       connections_->release(key);
       return;
@@ -214,12 +209,12 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
-      std::cerr << "Read failed for " << conn.socket << ": " << GetLastError() << "\n";
+      SIMULO_DEBUG_LOG("Read failed for {}: {}", conn.socket, GetLastError());
       connections_->release(connection_key);
    }
 
    if (len < 1) {
-      std::cerr << "EOF for " << conn.socket << "\n";
+      SIMULO_DEBUG_LOG("EOF from {}", conn.socket);
       connections_->release(connection_key);
       return;
    }
@@ -245,7 +240,7 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
    ReadResult result = conn.handshake_packet.read(conn.buf, conn.used, conn.read_stage);
    switch (result.min_remaining_bytes) {
    case -1:
-      std::cerr << "Failed to read handshake for " << conn.socket << "\n";
+      SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket);
       connections_->release(connection_key);
       break;
 
@@ -268,7 +263,8 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
    ReadResult result = conn.login_packet.read(conn.buf, conn.used, conn.read_stage);
    switch (result.min_remaining_bytes) {
    case -1:
-      std::cerr << "Failed to read login for " << conn.socket << "\n";
+      SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket);
+
       connections_->release(connection_key);
       break;
 
@@ -310,20 +306,18 @@ void Networking::handle_write(const bool op_success, const int connection_key,
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
-      std::cerr << "Write failed for " << conn.socket << ": " << GetLastError() << "\n";
+      SIMULO_DEBUG_LOG("Write failed for {}: {}", conn.socket, GetLastError());
       connections_->release(connection_key);
    }
 
    // Although not official, WSASend has never been observed to partially complete unless the socket
    // loses connection. Keep things simple by asserting that the operation should fully complete.
    if (len < conn.expected_write_amount) {
-      std::cerr << "Only wrote " << len << " bytes to " << conn.socket << " instead of "
-                << conn.expected_write_amount << "\n";
+      SIMULO_DEBUG_LOG("Only wrote {} bytes to {} instead of {}", len, conn.socket,
+                       conn.expected_write_amount);
       connections_->release(connection_key);
       return;
    }
-
-   std::cout << "Username is " << conn.handshake_packet.username_len << " characters long.\n";
 
    conn.prep_read();
    conn.read_stage = kLogin;

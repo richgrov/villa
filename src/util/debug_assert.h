@@ -5,6 +5,7 @@
 #ifdef NDEBUG
 
 #define SIMULO_DEBUG_ASSERT(cond, fmt, ...)
+#define SIMULO_DEBUG_LOG(fmt, ...)
 
 #else // NDEBUG
 
@@ -21,6 +22,9 @@
          std::exit(1);                                                                             \
       }                                                                                            \
    }
+
+#define SIMULO_DEBUG_LOG(fmt, ...)                                                                 \
+   std::cerr << __FILE__ << ":" << __LINE__ << ": " << std::format(fmt, __VA_ARGS__) << "\n";
 
 #endif // !NDEBUG
 
