@@ -73,12 +73,14 @@ private:
    void handle_write(bool op_success, int connection_key, DWORD len) const;
 
    using ConnectionSlab = Slab<Connection, 256>;
-   std::unique_ptr<Slab<Connection, 256>> connections_;
+   std::unique_ptr<ConnectionSlab> connections_;
+   // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
+   // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
    LPFN_ACCEPTEX accept_ex_;
    HANDLE root_completion_port_;
    SOCKET listen_socket_;
    SOCKET accepted_socket_;
-   unsigned char accept_buf_[kAddressLen * 2];
+   unsigned char accept_buf_[kAddressLen * 2]; // *2 to hold the local and remote address
    WSAOVERLAPPED overlapped_;
 };
 
