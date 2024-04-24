@@ -47,11 +47,8 @@ private:
       LoginReadStage read_stage;
       packet::Handshake handshake_packet;
       unsigned char buf[packet::Login::kMaxSize + 1]; // +1 for packet id
-      union {
-         unsigned int used;
-         unsigned int expected_write_amount;
-      };
-      unsigned int target_buf_len;
+      unsigned char buf_used;
+      unsigned char target_buf_len;
 
       Connection(SOCKET socket);
       ~Connection();

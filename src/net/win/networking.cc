@@ -46,8 +46,8 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 Networking::Connection::Connection(const SOCKET s)
-    : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), handshake_packet(), used(0),
-      target_buf_len(1) {}
+    : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), handshake_packet(),
+      buf_used(0), target_buf_len(1) {}
 
 Networking::Connection::~Connection() {
    close_or_log_error(socket);
@@ -55,7 +55,7 @@ Networking::Connection::~Connection() {
 
 void Networking::Connection::prep_read() {
    overlapped.op = Operation::kRead;
-   used = 0;
+   buf_used = 0;
    target_buf_len = 1;
 }
 
@@ -192,8 +192,8 @@ void Networking::handle_accept(const bool success) {
 
 void Networking::read(Connection &conn) {
    WSABUF buf;
-   buf.buf = reinterpret_cast<CHAR *>(&conn.buf[conn.used]);
-   buf.len = sizeof(conn.buf) - conn.used;
+   buf.buf = reinterpret_cast<CHAR *>(&conn.buf[conn.buf_used]);
+   buf.len = sizeof(conn.buf) - conn.buf_used;
 
    DWORD flags = 0;
    int result = WSARecv(conn.socket, &buf, 1, nullptr, &flags, &conn.overlapped, nullptr);
@@ -218,8 +218,11 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
       return;
    }
 
-   conn.used += len;
-   if (conn.used < conn.target_buf_len) {
+   SIMULO_DEBUG_ASSERT(len + static_cast<DWORD>(conn.buf_used) <= sizeof(conn.buf),
+                       "conn={}, len={}, used={}", connection_key, len, conn.buf_used);
+
+   conn.buf_used += len;
+   if (conn.buf_used < conn.target_buf_len) {
       read(conn);
       return;
    }
@@ -236,7 +239,7 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
 }
 
 void Networking::handle_read_handshake(int connection_key, Connection &conn) {
-   int min_remaining_bytes = conn.handshake_packet.read(conn.buf, conn.used);
+   int min_remaining_bytes = conn.handshake_packet.read(conn.buf, conn.buf_used);
    switch (min_remaining_bytes) {
    case -1:
       SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket);
@@ -249,8 +252,13 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    default:
-      SIMULO_DEBUG_ASSERT(min_remaining_bytes > 0, "remaining = {}", min_remaining_bytes);
-      conn.target_buf_len = static_cast<unsigned int>(min_remaining_bytes);
+      SIMULO_DEBUG_ASSERT(min_remaining_bytes > 0 && min_remaining_bytes <= sizeof(conn.buf),
+                          "remaining = {}", min_remaining_bytes);
+
+      conn.target_buf_len += static_cast<unsigned int>(min_remaining_bytes);
+      SIMULO_DEBUG_ASSERT(conn.target_buf_len <= sizeof(conn.buf), "target={}",
+                          conn.target_buf_len);
+
       read(conn);
       break;
    }
@@ -277,7 +285,7 @@ void Networking::write(Connection &conn, const unsigned char *data, const unsign
    buf.len = len;
 
    conn.overlapped.op = Operation::kWrite;
-   conn.expected_write_amount = len;
+   conn.buf_used = len;
 
    int result = WSASend(conn.socket, &buf, 1, nullptr, 0, &conn.overlapped, nullptr);
    if (result == SOCKET_ERROR) {
@@ -297,9 +305,8 @@ void Networking::handle_write(const bool op_success, const int connection_key,
 
    // Although not official, WSASend has never been observed to partially complete unless the socket
    // loses connection. Keep things simple by asserting that the operation should fully complete.
-   if (len < conn.expected_write_amount) {
-      SIMULO_DEBUG_LOG("Only wrote {} bytes to {} instead of {}", len, conn.socket,
-                       conn.expected_write_amount);
+   if (len < conn.buf_used) {
+      SIMULO_DEBUG_LOG("Only wrote {} bytes to {} instead of {}", len, conn.socket, conn.buf_used);
       connections_->release(connection_key);
       return;
    }
