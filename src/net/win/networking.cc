@@ -46,16 +46,16 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 Networking::Connection::Connection(const SOCKET s)
-    : socket(s), overlapped{}, read_stage(kHandshake), packet_read_progress(0), handshake_packet(),
-      used(0), target_buf_len(1) {}
+    : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), packet_read_progress(0),
+      handshake_packet(), used(0), target_buf_len(1) {}
 
 Networking::Connection::~Connection() {
    close_or_log_error(socket);
 }
 
 void Networking::Connection::prep_read() {
-   overlapped.op = kRead;
    packet_read_progress = 0;
+   overlapped.op = Operation::kRead;
    used = 0;
    target_buf_len = 1;
 }
@@ -129,11 +129,11 @@ void Networking::poll() {
          int conn_key = static_cast<int>(completion_key);
 
          switch (with_op->op) {
-         case kRead:
+         case Operation::kRead:
             handle_read(op_success, conn_key, len);
             break;
 
-         case kWrite:
+         case Operation::kWrite:
             handle_write(op_success, conn_key, len);
             break;
 
@@ -226,11 +226,11 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
    }
 
    switch (conn.read_stage) {
-   case kHandshake:
+   case LoginReadStage::kHandshake:
       handle_read_handshake(connection_key, conn);
       break;
 
-   case kLogin:
+   case LoginReadStage::kLogin:
       handle_read_login(connection_key, conn);
       break;
    }
@@ -291,7 +291,7 @@ void Networking::write(Connection &conn, const unsigned char *data, const unsign
    buf.buf = const_cast<CHAR *>(reinterpret_cast<const CHAR *>(data));
    buf.len = len;
 
-   conn.overlapped.op = kWrite;
+   conn.overlapped.op = Operation::kWrite;
    conn.expected_write_amount = len;
 
    int result = WSASend(conn.socket, &buf, 1, nullptr, 0, &conn.overlapped, nullptr);
@@ -320,8 +320,8 @@ void Networking::handle_write(const bool op_success, const int connection_key,
    }
 
    conn.prep_read();
-   conn.read_stage = kLogin;
    conn.login_packet = {};
    conn.target_buf_len = packet::Login::kMinSize + 1; // +1 for packet id
+   conn.read_stage = LoginReadStage::kLogin;
    read(conn);
 }
