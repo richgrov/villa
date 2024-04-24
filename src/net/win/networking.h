@@ -45,11 +45,7 @@ private:
       SOCKET socket;
       OverlappedWithOp overlapped;
       LoginReadStage read_stage;
-      int packet_read_progress;
-      union {
-         packet::Handshake handshake_packet;
-         packet::Login login_packet;
-      };
+      packet::Handshake handshake_packet;
       unsigned char buf[packet::Login::kMaxSize + 1]; // +1 for packet id
       union {
          unsigned int used;

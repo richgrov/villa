@@ -29,23 +29,24 @@ struct Login {
              sizeof(dimension);
    }
 
-   static const std::size_t kMinSize;
    static const std::size_t kMaxSize;
 
-   ReadResult read(unsigned char *buf, std::size_t len, int progress);
+   bool process(const unsigned char *buf, StringSize expected_username_len);
 };
 
-inline constexpr std::size_t Login::kMinSize = Login::required_size(1);
 inline constexpr std::size_t Login::kMaxSize = Login::required_size(16);
 
+// The username sent in the handshake packet is ignored by this implementation. We only care about
+// its length to know the size of the following Login packet.
 struct Handshake {
    static constexpr UByte kId = 2;
    static constexpr unsigned char kOfflineModeResponse[] = {kId, 0, 1, 0, '-'};
 
    StringSize username_len;
-   char16_t username[16];
 
-   ReadResult read(unsigned char *buf, std::size_t len, int progress);
+   int read(const unsigned char *buf, std::size_t len);
+
+   static const std::size_t kMinSize = sizeof(username_len) + string_size(1);
 };
 
 } // namespace packet
