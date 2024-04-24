@@ -27,7 +27,7 @@ private:
    // true size
    static constexpr DWORD kAddressLen = sizeof(sockaddr_in) + 16;
 
-   enum class Operation {
+   enum class Operation : unsigned char {
       kRead,
       kWrite,
    };
@@ -36,7 +36,7 @@ private:
       Operation op;
    };
 
-   enum class LoginReadStage {
+   enum class LoginReadStage : unsigned char {
       kHandshake,
       kLogin,
    };
