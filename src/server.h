@@ -12,7 +12,7 @@ public:
    void run();
 
 private:
-   Networking networking_;
+   net::Networking networking_;
 };
 
 } // namespace simulo

@@ -11,7 +11,7 @@
 #include "util/debug_assert.h"
 #include "util/slab.h"
 
-using namespace simulo;
+using namespace simulo::net;
 
 namespace {
 
@@ -45,15 +45,15 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-Networking::Connection::Connection(const SOCKET s)
+Connection::Connection(const SOCKET s)
     : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), handshake_packet(),
       buf_used(0), target_buf_len(1) {}
 
-Networking::Connection::~Connection() {
+Connection::~Connection() {
    close_or_log_error(socket);
 }
 
-void Networking::Connection::prep_read() {
+void Connection::prep_read() {
    overlapped.op = Operation::kRead;
    buf_used = 0;
    target_buf_len = 1;

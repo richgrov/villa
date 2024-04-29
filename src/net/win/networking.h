@@ -13,7 +13,36 @@
 #include "protocol/packets.h"
 #include "util/slab.h"
 
-namespace simulo {
+namespace simulo::net {
+
+enum class Operation : unsigned char {
+   kRead,
+   kWrite,
+};
+
+struct OverlappedWithOp : OVERLAPPED {
+   Operation op;
+};
+
+enum class LoginReadStage : unsigned char {
+   kHandshake,
+   kLogin,
+};
+
+struct Connection {
+   SOCKET socket;
+   OverlappedWithOp overlapped;
+   LoginReadStage read_stage;
+   packet::Handshake handshake_packet;
+   unsigned char buf[packet::Login::kMaxSize + 1]; // +1 for packet id
+   unsigned char buf_used;
+   unsigned char target_buf_len;
+
+   Connection(SOCKET socket);
+   ~Connection();
+
+   void prep_read();
+};
 
 class Networking {
 public:
@@ -27,35 +56,6 @@ private:
    // AcceptEx requires length of address to be at least 16 bytes more than its
    // true size
    static constexpr DWORD kAddressLen = sizeof(sockaddr_in) + 16;
-
-   enum class Operation : unsigned char {
-      kRead,
-      kWrite,
-   };
-
-   struct OverlappedWithOp : OVERLAPPED {
-      Operation op;
-   };
-
-   enum class LoginReadStage : unsigned char {
-      kHandshake,
-      kLogin,
-   };
-
-   struct Connection {
-      SOCKET socket;
-      OverlappedWithOp overlapped;
-      LoginReadStage read_stage;
-      packet::Handshake handshake_packet;
-      unsigned char buf[packet::Login::kMaxSize + 1]; // +1 for packet id
-      unsigned char buf_used;
-      unsigned char target_buf_len;
-
-      Connection(SOCKET socket);
-      ~Connection();
-
-      void prep_read();
-   };
 
    void accept();
    void handle_accept(bool success);
@@ -78,6 +78,6 @@ private:
    WSAOVERLAPPED overlapped_;
 };
 
-} // namespace simulo
+} // namespace simulo::net
 
 #endif // !SIMULO_NET_WIN_NETWORKING_H_
