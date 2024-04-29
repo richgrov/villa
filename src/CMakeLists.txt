@@ -14,6 +14,10 @@ set(SOURCE_FILES
    "protocol/types.h"
 
    "util/slab.h"
+
+   "server.cc"
+   "server.h"
+
    ${OS_SPECIFIC_FILES}
 )
 
