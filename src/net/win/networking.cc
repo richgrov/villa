@@ -91,6 +91,10 @@ Networking::Networking(const std::uint16_t port)
    }
 }
 
+Networking::~Networking() {
+   closesocket(listen_socket_);
+}
+
 void Networking::listen() {
    if (::listen(listen_socket_, 16) == SOCKET_ERROR) {
       throw create_func_error("listen", WSAGetLastError());

@@ -18,6 +18,7 @@ namespace simulo {
 class Networking {
 public:
    explicit Networking(std::uint16_t port);
+   ~Networking();
 
    void listen();
    void poll();
