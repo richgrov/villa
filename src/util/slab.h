@@ -69,8 +69,8 @@ public:
 
 private:
    struct Storage {
-      static constexpr std::size_t kSize = std::max({sizeof(int), sizeof(T)});
-      static constexpr std::size_t kAlign = std::max({alignof(int), alignof(T)});
+      static constexpr std::size_t kSize = std::max<std::size_t>({sizeof(int), sizeof(T)});
+      static constexpr std::size_t kAlign = std::max<std::size_t>({alignof(int), alignof(T)});
       alignas(kAlign) unsigned char storage[kSize];
 
       int next() {
