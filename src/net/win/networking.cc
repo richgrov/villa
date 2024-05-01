@@ -26,7 +26,8 @@ void close_or_log_error(SOCKET socket) {
       return;
    }
 
-   SIMULO_PANIC("Failed to close {}: {}", socket, WSAGetLastError());
+   int err = WSAGetLastError();
+   SIMULO_PANIC("Failed to close {}: {}", socket, err);
 }
 
 void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
