@@ -288,6 +288,13 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       return;
    }
 
+   if (login_packet.protocol_version != packet::Login::kProtocolVersion) {
+      SIMULO_DEBUG_LOG("Invalid protocol version from {}: {}", conn.socket,
+                       login_packet.protocol_version);
+      connections_->release(connection_key);
+      return;
+   }
+
    if (accepted_connections_.size() < accepted_connections_.capacity()) {
       accepted_connections_.push_back(std::move(conn));
    } else {

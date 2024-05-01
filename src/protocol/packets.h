@@ -16,6 +16,7 @@ struct ReadResult {
 namespace packet {
 
 struct Login {
+   static constexpr std::int32_t kProtocolVersion = 14;
    static constexpr UByte kId = 1;
 
    std::int32_t protocol_version;
