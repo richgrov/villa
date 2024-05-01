@@ -1,6 +1,7 @@
 #ifndef SIMULO_NET_WIN_NETWORKING_H_
 #define SIMULO_NET_WIN_NETWORKING_H_
 
+#include <array>
 #include <cstdint>
 #include <memory>
 
@@ -34,7 +35,7 @@ struct Connection {
    OverlappedWithOp overlapped;
    LoginReadStage read_stage;
    packet::Handshake handshake_packet;
-   unsigned char buf[packet::Login::kMaxSize + 1]; // +1 for packet id
+   std::array<unsigned char, packet::Login::kMaxSize + 1> buf; // +1 for packet id
    unsigned char buf_used;
    unsigned char target_buf_len;
 
