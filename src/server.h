@@ -2,6 +2,7 @@
 #define SIMULO_SERVER_H_
 
 #include "net/networking.h"
+#include "net/win/networking.h"
 
 namespace simulo {
 
