@@ -6,6 +6,7 @@
 
 #include <MSWSock.h>
 #include <WinSock2.h>
+#include <vector>
 
 #include "protocol/packets.h"
 #include "util/debug_assert.h"
@@ -70,9 +71,9 @@ void Connection::prep_read() {
    target_buf_len = 1;
 }
 
-Networking::Networking(const std::uint16_t port)
+Networking::Networking(const std::uint16_t port, std::vector<Connection> &accepted_connections)
     : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
-      overlapped_{} {
+      overlapped_{}, accepted_connections_(accepted_connections) {
 
    WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -287,8 +288,12 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       return;
    }
 
-   std::cout << "UL: " << login_packet.username_len << ", PV: " << login_packet.protocol_version
-             << "\n";
+   if (accepted_connections_.size() < accepted_connections_.capacity()) {
+      accepted_connections_.push_back(std::move(conn));
+   } else {
+      SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket);
+   }
+
    connections_->release(connection_key);
 }
 

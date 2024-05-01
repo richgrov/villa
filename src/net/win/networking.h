@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include <WinSock2.h>
 #include <minwinbase.h>
@@ -48,7 +49,7 @@ struct Connection {
 
 class Networking {
 public:
-   explicit Networking(std::uint16_t port);
+   explicit Networking(std::uint16_t port, std::vector<Connection> &accepted_connections);
    ~Networking();
 
    void listen();
@@ -78,6 +79,8 @@ private:
    SOCKET accepted_socket_;
    unsigned char accept_buf_[kAddressLen * 2]; // *2 to hold the local and remote address
    WSAOVERLAPPED overlapped_;
+
+   std::vector<Connection> &accepted_connections_;
 };
 
 } // namespace simulo::net

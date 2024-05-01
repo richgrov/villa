@@ -4,6 +4,8 @@
 #include "net/networking.h"
 #include "net/win/networking.h"
 
+#include <vector>
+
 namespace simulo {
 
 class Server {
@@ -13,6 +15,9 @@ public:
    void run();
 
 private:
+   void tick();
+
+   std::vector<net::Connection> accepted_connections_;
    net::Networking networking_;
 };
 
