@@ -40,6 +40,7 @@ struct Connection {
    unsigned char target_buf_len;
 
    explicit Connection(SOCKET socket);
+   Connection(Connection &&other);
    ~Connection();
 
    void prep_read();

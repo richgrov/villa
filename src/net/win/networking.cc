@@ -50,8 +50,18 @@ Connection::Connection(const SOCKET s)
     : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), handshake_packet(),
       buf_used(0), target_buf_len(1) {}
 
+Connection::Connection(Connection &&other)
+    : socket(other.socket), overlapped(other.overlapped), read_stage(other.read_stage),
+      handshake_packet(std::move(other.handshake_packet)), buf_used(other.buf_used), buf(other.buf),
+      target_buf_len(other.target_buf_len) {
+
+   other.socket = INVALID_SOCKET;
+}
+
 Connection::~Connection() {
-   close_or_log_error(socket);
+   if (socket != INVALID_SOCKET) {
+      close_or_log_error(socket);
+   }
 }
 
 void Connection::prep_read() {
