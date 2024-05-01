@@ -18,7 +18,7 @@
    {                                                                                               \
       if (!(cond)) {                                                                               \
          std::cerr << __FILE__ << ":" << __LINE__ << ": " << std::format(fmt, __VA_ARGS__)         \
-                   << "\n";                                                                        \
+                   << std::endl;                                                                   \
          std::exit(1);                                                                             \
       }                                                                                            \
    }
@@ -29,7 +29,7 @@
 #endif // !NDEBUG
 
 #define SIMULO_PANIC(fmt, ...)                                                                     \
-   std::cerr << __FILE__ << ":" << __LINE__ << ": " << std::format(fmt, __VA_ARGS__) << "\n";      \
+   std::cerr << __FILE__ << ":" << __LINE__ << ": " << std::format(fmt, __VA_ARGS__) << std::endl; \
    std::exit(1)
 
 template <class T>
