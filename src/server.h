@@ -7,7 +7,7 @@ namespace simulo {
 
 class Server {
 public:
-   Server();
+   explicit Server();
 
    void run();
 

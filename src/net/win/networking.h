@@ -38,7 +38,7 @@ struct Connection {
    unsigned char buf_used;
    unsigned char target_buf_len;
 
-   Connection(SOCKET socket);
+   explicit Connection(SOCKET socket);
    ~Connection();
 
    void prep_read();
