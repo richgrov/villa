@@ -48,20 +48,20 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-Connection::Connection(const SOCKET s)
-    : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), handshake_packet(),
-      buf_used(0), target_buf_len(1) {}
+Connection::Connection(const SOCKET socket)
+    : socket_(socket), overlapped_{}, read_stage_(LoginReadStage::kHandshake), handshake_packet_(),
+      buf_used_(0), target_buf_len_(1) {}
 
 Connection::~Connection() {
-   if (socket != INVALID_SOCKET) {
-      close_or_log_error(socket);
+   if (socket_ != INVALID_SOCKET) {
+      close_or_log_error(socket_);
    }
 }
 
 void Connection::prep_read() {
-   overlapped.op = Operation::kRead;
-   buf_used = 0;
-   target_buf_len = 1;
+   overlapped_.op = Operation::kRead;
+   buf_used_ = 0;
+   target_buf_len_ = 1;
 }
 
 Networking::Networking(const std::uint16_t port,
@@ -186,11 +186,11 @@ void Networking::handle_accept(const bool success) {
    Connection &conn = connections_->get(key);
 
    HANDLE client_completion_port =
-       CreateIoCompletionPort(reinterpret_cast<HANDLE>(conn.socket), root_completion_port_,
+       CreateIoCompletionPort(reinterpret_cast<HANDLE>(conn.socket_), root_completion_port_,
                               static_cast<ULONG_PTR>(key), 0);
 
    if (client_completion_port == nullptr) {
-      SIMULO_DEBUG_LOG("Failed to create completion port for {}: {}", conn.socket, GetLastError());
+      SIMULO_DEBUG_LOG("Failed to create completion port for {}: {}", conn.socket_, GetLastError());
 
       connections_->release(key);
       return;
@@ -202,11 +202,11 @@ void Networking::handle_accept(const bool success) {
 
 void Networking::read(Connection &conn) {
    WSABUF buf;
-   buf.buf = reinterpret_cast<CHAR *>(&conn.buf.data()[conn.buf_used]);
-   buf.len = conn.buf.size() - conn.buf_used;
+   buf.buf = reinterpret_cast<CHAR *>(&conn.buf_.data()[conn.buf_used_]);
+   buf.len = conn.buf_.size() - conn.buf_used_;
 
    DWORD flags = 0;
-   int result = WSARecv(conn.socket, &buf, 1, nullptr, &flags, &conn.overlapped, nullptr);
+   int result = WSARecv(conn.socket_, &buf, 1, nullptr, &flags, &conn.overlapped_, nullptr);
 
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
@@ -218,26 +218,26 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
-      SIMULO_DEBUG_LOG("Read failed for {}: {}", conn.socket, GetLastError());
+      SIMULO_DEBUG_LOG("Read failed for {}: {}", conn.socket_, GetLastError());
       connections_->release(connection_key);
    }
 
    if (len < 1) {
-      SIMULO_DEBUG_LOG("EOF from {}", conn.socket);
+      SIMULO_DEBUG_LOG("EOF from {}", conn.socket_);
       connections_->release(connection_key);
       return;
    }
 
-   SIMULO_DEBUG_ASSERT(len + static_cast<DWORD>(conn.buf_used) <= conn.buf.size(),
-                       "conn={}, len={}, used={}", connection_key, len, conn.buf_used);
+   SIMULO_DEBUG_ASSERT(len + static_cast<DWORD>(conn.buf_used_) <= conn.buf_.size(),
+                       "conn={}, len={}, used={}", connection_key, len, conn.buf_used_);
 
-   conn.buf_used += len;
-   if (conn.buf_used < conn.target_buf_len) {
+   conn.buf_used_ += len;
+   if (conn.buf_used_ < conn.target_buf_len_) {
       read(conn);
       return;
    }
 
-   switch (conn.read_stage) {
+   switch (conn.read_stage_) {
    case LoginReadStage::kHandshake:
       handle_read_handshake(connection_key, conn);
       break;
@@ -249,10 +249,10 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
 }
 
 void Networking::handle_read_handshake(int connection_key, Connection &conn) {
-   int min_remaining_bytes = conn.handshake_packet.read(conn.buf.data(), conn.buf_used);
+   int min_remaining_bytes = conn.handshake_packet_.read(conn.buf_.data(), conn.buf_used_);
    switch (min_remaining_bytes) {
    case -1:
-      SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket);
+      SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket_);
       connections_->release(connection_key);
       break;
 
@@ -262,11 +262,12 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    default:
-      SIMULO_DEBUG_ASSERT(min_remaining_bytes > 0 && min_remaining_bytes <= conn.buf.size(),
+      SIMULO_DEBUG_ASSERT(min_remaining_bytes > 0 && min_remaining_bytes <= conn.buf_.size(),
                           "remaining = {}", min_remaining_bytes);
 
-      conn.target_buf_len += static_cast<unsigned int>(min_remaining_bytes);
-      SIMULO_DEBUG_ASSERT(conn.target_buf_len <= conn.buf.size(), "target={}", conn.target_buf_len);
+      conn.target_buf_len_ += static_cast<unsigned int>(min_remaining_bytes);
+      SIMULO_DEBUG_ASSERT(conn.target_buf_len_ <= conn.buf_.size(), "target={}",
+                          conn.target_buf_len_);
 
       read(conn);
       break;
@@ -275,15 +276,15 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 
 void Networking::handle_read_login(int connection_key, Connection &conn) {
    packet::Login login_packet = {};
-   bool ok = login_packet.process(conn.buf.data(), conn.handshake_packet.username_len);
+   bool ok = login_packet.process(conn.buf_.data(), conn.handshake_packet_.username_len);
    if (!ok) {
-      SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket);
+      SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket_);
       connections_->release(connection_key);
       return;
    }
 
    if (login_packet.protocol_version != packet::Login::kProtocolVersion) {
-      SIMULO_DEBUG_LOG("Invalid protocol version from {}: {}", conn.socket,
+      SIMULO_DEBUG_LOG("Invalid protocol version from {}: {}", conn.socket_,
                        login_packet.protocol_version);
       connections_->release(connection_key);
       return;
@@ -292,7 +293,7 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
    if (accepted_connections_.size() < accepted_connections_.capacity()) {
       accepted_connections_.push_back(std::ref(conn));
    } else {
-      SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket);
+      SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket_);
       connections_->release(connection_key);
    }
 }
@@ -303,10 +304,10 @@ void Networking::write(Connection &conn, const unsigned char *data, const unsign
    buf.buf = const_cast<CHAR *>(reinterpret_cast<const CHAR *>(data));
    buf.len = len;
 
-   conn.overlapped.op = Operation::kWrite;
-   conn.buf_used = len;
+   conn.overlapped_.op = Operation::kWrite;
+   conn.buf_used_ = len;
 
-   int result = WSASend(conn.socket, &buf, 1, nullptr, 0, &conn.overlapped, nullptr);
+   int result = WSASend(conn.socket_, &buf, 1, nullptr, 0, &conn.overlapped_, nullptr);
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
       SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = {}", err);
@@ -318,20 +319,21 @@ void Networking::handle_write(const bool op_success, const int connection_key,
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
-      SIMULO_DEBUG_LOG("Write failed for {}: {}", conn.socket, GetLastError());
+      SIMULO_DEBUG_LOG("Write failed for {}: {}", conn.socket_, GetLastError());
       connections_->release(connection_key);
    }
 
    // Although not official, WSASend has never been observed to partially complete unless the socket
    // loses connection. Keep things simple by asserting that the operation should fully complete.
-   if (len < conn.buf_used) {
-      SIMULO_DEBUG_LOG("Only wrote {} bytes to {} instead of {}", len, conn.socket, conn.buf_used);
+   if (len < conn.buf_used_) {
+      SIMULO_DEBUG_LOG("Only wrote {} bytes to {} instead of {}", len, conn.socket_,
+                       conn.buf_used_);
       connections_->release(connection_key);
       return;
    }
 
    conn.prep_read();
-   conn.read_stage = LoginReadStage::kLogin;
-   conn.target_buf_len = packet::Login::required_size(conn.handshake_packet.username_len);
+   conn.read_stage_ = LoginReadStage::kLogin;
+   conn.target_buf_len_ = packet::Login::required_size(conn.handshake_packet_.username_len);
    read(conn);
 }

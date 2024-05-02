@@ -32,19 +32,27 @@ enum class LoginReadStage : unsigned char {
    kLogin,
 };
 
-struct Connection {
-   SOCKET socket;
-   OverlappedWithOp overlapped;
-   LoginReadStage read_stage;
-   packet::Handshake handshake_packet;
-   std::array<unsigned char, packet::Login::kMaxSize + 1> buf; // +1 for packet id
-   unsigned char buf_used;
-   unsigned char target_buf_len;
-
+class Connection {
+public:
    explicit Connection(SOCKET socket);
    ~Connection();
 
+   StringSize username_len() {
+      return handshake_packet_.username_len;
+   }
+
+private:
+   SOCKET socket_;
+   OverlappedWithOp overlapped_;
+   LoginReadStage read_stage_;
+   packet::Handshake handshake_packet_;
+   std::array<unsigned char, packet::Login::kMaxSize + 1> buf_; // +1 for packet id
+   unsigned char buf_used_;
+   unsigned char target_buf_len_;
+
    void prep_read();
+
+   friend class Networking;
 };
 
 class Networking {

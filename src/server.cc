@@ -33,6 +33,6 @@ void Server::tick() {
    while (!accepted_connections_.empty()) {
       net::Connection &conn = accepted_connections_.back();
       accepted_connections_.pop_back();
-      std::cout << conn.handshake_packet.username_len << "\n";
+      std::cout << conn.username_len() << "\n";
    }
 }
