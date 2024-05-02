@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -41,7 +42,6 @@ struct Connection {
    unsigned char target_buf_len;
 
    explicit Connection(SOCKET socket);
-   Connection(Connection &&other);
    ~Connection();
 
    void prep_read();
@@ -49,7 +49,8 @@ struct Connection {
 
 class Networking {
 public:
-   explicit Networking(std::uint16_t port, std::vector<Connection> &accepted_connections);
+   explicit Networking(std::uint16_t port,
+                       std::vector<std::reference_wrapper<Connection>> &accepted_connections);
    ~Networking();
 
    void listen();
@@ -80,7 +81,7 @@ private:
    unsigned char accept_buf_[kAddressLen * 2]; // *2 to hold the local and remote address
    WSAOVERLAPPED overlapped_;
 
-   std::vector<Connection> &accepted_connections_;
+   std::vector<std::reference_wrapper<Connection>> &accepted_connections_;
 };
 
 } // namespace simulo::net

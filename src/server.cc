@@ -31,7 +31,7 @@ void Server::tick() {
    networking_.poll();
 
    while (!accepted_connections_.empty()) {
-      const net::Connection conn = std::move(accepted_connections_.back());
+      net::Connection &conn = accepted_connections_.back();
       accepted_connections_.pop_back();
       std::cout << conn.handshake_packet.username_len << "\n";
    }

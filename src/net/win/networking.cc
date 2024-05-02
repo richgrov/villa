@@ -1,6 +1,7 @@
 #include "networking.h"
 
 #include <array>
+#include <functional>
 #include <iostream>
 #include <string>
 
@@ -51,14 +52,6 @@ Connection::Connection(const SOCKET s)
     : socket(s), overlapped{}, read_stage(LoginReadStage::kHandshake), handshake_packet(),
       buf_used(0), target_buf_len(1) {}
 
-Connection::Connection(Connection &&other)
-    : socket(other.socket), overlapped(other.overlapped), read_stage(other.read_stage),
-      handshake_packet(std::move(other.handshake_packet)), buf_used(other.buf_used), buf(other.buf),
-      target_buf_len(other.target_buf_len) {
-
-   other.socket = INVALID_SOCKET;
-}
-
 Connection::~Connection() {
    if (socket != INVALID_SOCKET) {
       close_or_log_error(socket);
@@ -71,7 +64,8 @@ void Connection::prep_read() {
    target_buf_len = 1;
 }
 
-Networking::Networking(const std::uint16_t port, std::vector<Connection> &accepted_connections)
+Networking::Networking(const std::uint16_t port,
+                       std::vector<std::reference_wrapper<Connection>> &accepted_connections)
     : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
       overlapped_{}, accepted_connections_(accepted_connections) {
 
@@ -296,12 +290,11 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
    }
 
    if (accepted_connections_.size() < accepted_connections_.capacity()) {
-      accepted_connections_.push_back(std::move(conn));
+      accepted_connections_.push_back(std::ref(conn));
    } else {
       SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket);
+      connections_->release(connection_key);
    }
-
-   connections_->release(connection_key);
 }
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {

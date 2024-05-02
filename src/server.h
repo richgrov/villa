@@ -4,6 +4,7 @@
 #include "net/networking.h"
 #include "net/win/networking.h"
 
+#include <functional>
 #include <vector>
 
 namespace simulo {
@@ -17,7 +18,7 @@ public:
 private:
    void tick();
 
-   std::vector<net::Connection> accepted_connections_;
+   std::vector<std::reference_wrapper<net::Connection>> accepted_connections_;
    net::Networking networking_;
 };
 
