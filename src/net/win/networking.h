@@ -19,17 +19,13 @@
 namespace simulo::net {
 
 enum class Operation : unsigned char {
-   kRead,
-   kWrite,
+   kReadHandshake,
+   kReadLogin,
+   kWriteHandshake,
 };
 
 struct OverlappedWithOp : OVERLAPPED {
    Operation op;
-};
-
-enum class LoginReadStage : unsigned char {
-   kHandshake,
-   kLogin,
 };
 
 class Connection {
@@ -44,13 +40,10 @@ public:
 private:
    SOCKET socket_;
    OverlappedWithOp overlapped_;
-   LoginReadStage read_stage_;
    packet::Handshake handshake_packet_;
    std::array<unsigned char, packet::Login::kMaxSize + 1> buf_; // +1 for packet id
    unsigned char buf_used_;
    unsigned char target_buf_len_;
-
-   void prep_read();
 
    friend class Networking;
 };
@@ -75,6 +68,7 @@ private:
    void handle_read(bool op_success, int connection_key, DWORD len);
    void handle_read_handshake(int connection_key, Connection &conn);
    void handle_read_login(int connection_key, Connection &conn);
+   /// `conn.overlapped_.op` MUST be set to a writing value before calling this
    static void write(Connection &conn, const unsigned char *buf, unsigned int len);
    void handle_write(bool op_success, int connection_key, DWORD len) const;
 

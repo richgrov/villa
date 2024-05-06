@@ -49,19 +49,12 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 Connection::Connection(const SOCKET socket)
-    : socket_(socket), overlapped_{}, read_stage_(LoginReadStage::kHandshake), handshake_packet_(),
-      buf_used_(0), target_buf_len_(1) {}
+    : socket_(socket), overlapped_{}, handshake_packet_(), buf_used_(0), target_buf_len_(1) {}
 
 Connection::~Connection() {
    if (socket_ != INVALID_SOCKET) {
       close_or_log_error(socket_);
    }
-}
-
-void Connection::prep_read() {
-   overlapped_.op = Operation::kRead;
-   buf_used_ = 0;
-   target_buf_len_ = 1;
 }
 
 Networking::Networking(const std::uint16_t port,
@@ -138,11 +131,12 @@ void Networking::poll() {
          int conn_key = static_cast<int>(completion_key);
 
          switch (with_op->op) {
-         case Operation::kRead:
+         case Operation::kReadHandshake:
+         case Operation::kReadLogin:
             handle_read(op_success, conn_key, len);
             break;
 
-         case Operation::kWrite:
+         case Operation::kWriteHandshake:
             handle_write(op_success, conn_key, len);
             break;
 
@@ -237,14 +231,17 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
       return;
    }
 
-   switch (conn.read_stage_) {
-   case LoginReadStage::kHandshake:
+   switch (conn.overlapped_.op) {
+   case Operation::kReadHandshake:
       handle_read_handshake(connection_key, conn);
       break;
 
-   case LoginReadStage::kLogin:
+   case Operation::kReadLogin:
       handle_read_login(connection_key, conn);
       break;
+
+   default:
+      SIMULO_PANIC("invalid op {}", enum_ordinal(conn.overlapped_.op));
    }
 }
 
@@ -257,6 +254,7 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    case 0:
+      conn.overlapped_.op = Operation::kWriteHandshake;
       write(conn, packet::Handshake::kOfflineModeResponse,
             sizeof(packet::Handshake::kOfflineModeResponse));
       break;
@@ -299,12 +297,14 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
 }
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {
+   SIMULO_DEBUG_ASSERT(conn.overlapped_.op == Operation::kWriteHandshake,
+                       "expected writing op but got {}", enum_ordinal(conn.overlapped_.op));
+
    WSABUF buf;
    // Buffer is read-only- safe to const_cast
    buf.buf = const_cast<CHAR *>(reinterpret_cast<const CHAR *>(data));
    buf.len = len;
 
-   conn.overlapped_.op = Operation::kWrite;
    conn.buf_used_ = len;
 
    int result = WSASend(conn.socket_, &buf, 1, nullptr, 0, &conn.overlapped_, nullptr);
@@ -332,8 +332,9 @@ void Networking::handle_write(const bool op_success, const int connection_key,
       return;
    }
 
-   conn.prep_read();
-   conn.read_stage_ = LoginReadStage::kLogin;
+   conn.overlapped_.op = Operation::kReadLogin;
+   conn.buf_used_ = 0;
+   conn.target_buf_len_ = 1;
    conn.target_buf_len_ = packet::Login::required_size(conn.handshake_packet_.username_len);
    read(conn);
 }
