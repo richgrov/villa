@@ -49,7 +49,7 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 Connection::Connection(const SOCKET socket)
-    : socket_(socket), overlapped_{}, handshake_packet_(), buf_used_(0), target_buf_len_(1) {}
+    : socket_(socket), overlapped_{}, username_len_(0), buf_used_(0), target_buf_len_(1) {}
 
 Connection::~Connection() {
    if (socket_ != INVALID_SOCKET) {
@@ -246,7 +246,8 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
 }
 
 void Networking::handle_read_handshake(int connection_key, Connection &conn) {
-   int min_remaining_bytes = conn.handshake_packet_.read(conn.buf_.data(), conn.buf_used_);
+   packet::Handshake handshake{};
+   int min_remaining_bytes = handshake.read(conn.buf_.data(), conn.buf_used_);
    switch (min_remaining_bytes) {
    case -1:
       SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket_);
@@ -254,6 +255,10 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    case 0:
+      conn.username_len_ = handshake.username_len;
+      SIMULO_DEBUG_ASSERT(conn.username_len_ > 0 && conn.username_len_ <= 16, "username len = {}",
+                          conn.username_len_);
+
       conn.overlapped_.op = Operation::kWriteHandshake;
       write(conn, packet::Handshake::kOfflineModeResponse,
             sizeof(packet::Handshake::kOfflineModeResponse));
@@ -273,8 +278,8 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 }
 
 void Networking::handle_read_login(int connection_key, Connection &conn) {
-   bool ok = login_packet.process(conn.buf_.data(), conn.handshake_packet_.username_len);
    packet::Login login_packet{};
+   bool ok = login_packet.process(conn.buf_.data(), conn.username_len_);
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket_);
       connections_->release(connection_key);
@@ -335,6 +340,6 @@ void Networking::handle_write(const bool op_success, const int connection_key,
    conn.overlapped_.op = Operation::kReadLogin;
    conn.buf_used_ = 0;
    conn.target_buf_len_ = 1;
-   conn.target_buf_len_ = packet::Login::required_size(conn.handshake_packet_.username_len);
+   conn.target_buf_len_ = packet::Login::required_size(conn.username_len_);
    read(conn);
 }

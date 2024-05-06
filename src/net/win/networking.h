@@ -14,6 +14,7 @@
 // clang-format on
 
 #include "protocol/packets.h"
+#include "protocol/types.h"
 #include "util/slab.h"
 
 namespace simulo::net {
@@ -34,13 +35,13 @@ public:
    ~Connection();
 
    StringSize username_len() {
-      return handshake_packet_.username_len;
+      return username_len_;
    }
 
 private:
    SOCKET socket_;
    OverlappedWithOp overlapped_;
-   packet::Handshake handshake_packet_;
+   signed char username_len_;
    std::array<unsigned char, packet::Login::kMaxSize + 1> buf_; // +1 for packet id
    unsigned char buf_used_;
    unsigned char target_buf_len_;
