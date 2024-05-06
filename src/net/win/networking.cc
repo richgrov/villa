@@ -273,8 +273,8 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 }
 
 void Networking::handle_read_login(int connection_key, Connection &conn) {
-   packet::Login login_packet = {};
    bool ok = login_packet.process(conn.buf_.data(), conn.handshake_packet_.username_len);
+   packet::Login login_packet{};
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket_);
       connections_->release(connection_key);
