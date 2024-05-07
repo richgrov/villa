@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -36,14 +35,9 @@ public:
    Connection(Connection &other) = delete;
    ~Connection();
 
-   StringSize username_len() {
-      return username_len_;
-   }
-
 private:
    SOCKET socket_;
    OverlappedWithOp overlapped_;
-   signed char username_len_;
    std::array<unsigned char, packet::Login::kMaxSize + 1> buf_; // +1 for packet id
    unsigned char buf_used_;
    unsigned char target_buf_len_;
@@ -51,10 +45,16 @@ private:
    friend class Networking;
 };
 
+struct IncomingConnection {
+   Connection &conn;
+   StringSize username_len; // TODO: Replace with username char[]
+
+   IncomingConnection(Connection &c, StringSize ul) : conn(c), username_len(ul) {}
+};
+
 class Networking {
 public:
-   explicit Networking(std::uint16_t port,
-                       std::vector<std::reference_wrapper<Connection>> &accepted_connections);
+   explicit Networking(std::uint16_t port, std::vector<IncomingConnection> &accepted_connections);
    ~Networking();
 
    void listen();
@@ -86,7 +86,7 @@ private:
    unsigned char accept_buf_[kAddressLen * 2]; // *2 to hold the local and remote address
    WSAOVERLAPPED overlapped_;
 
-   std::vector<std::reference_wrapper<Connection>> &accepted_connections_;
+   std::vector<IncomingConnection> &accepted_connections_;
 };
 
 } // namespace simulo::net

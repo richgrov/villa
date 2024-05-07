@@ -1,7 +1,6 @@
 #include "networking.h"
 
 #include <array>
-#include <functional>
 #include <iostream>
 #include <string>
 
@@ -49,7 +48,7 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 Connection::Connection(const SOCKET socket)
-    : socket_(socket), overlapped_{}, username_len_(0), buf_used_(0), target_buf_len_(1) {}
+    : socket_(socket), overlapped_{}, buf_used_(0), target_buf_len_(1) {}
 
 Connection::~Connection() {
    if (socket_ != INVALID_SOCKET) {
@@ -58,7 +57,7 @@ Connection::~Connection() {
 }
 
 Networking::Networking(const std::uint16_t port,
-                       std::vector<std::reference_wrapper<Connection>> &accepted_connections)
+                       std::vector<IncomingConnection> &accepted_connections)
     : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
       overlapped_{}, accepted_connections_(accepted_connections) {
 
@@ -255,9 +254,9 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    case 0:
-      conn.username_len_ = handshake.username_len;
-      SIMULO_DEBUG_ASSERT(conn.username_len_ > 0 && conn.username_len_ <= 16, "username len = {}",
-                          conn.username_len_);
+      SIMULO_DEBUG_ASSERT(handshake.username_len > 0 && handshake.username_len <= 16,
+                          "username len = {}", handshake.username_len);
+      conn.target_buf_len_ = packet::Login::required_size(handshake.username_len);
 
       conn.overlapped_.op = Operation::kWriteHandshake;
       write(conn, packet::Handshake::kOfflineModeResponse,
@@ -279,7 +278,7 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 
 void Networking::handle_read_login(int connection_key, Connection &conn) {
    packet::Login login_packet{};
-   bool ok = login_packet.process(conn.buf_.data(), conn.username_len_);
+   bool ok = login_packet.process(conn.buf_.data(), conn.buf_used_);
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket_);
       connections_->release(connection_key);
@@ -294,7 +293,7 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
    }
 
    if (accepted_connections_.size() < accepted_connections_.capacity()) {
-      accepted_connections_.push_back(std::ref(conn));
+      accepted_connections_.emplace_back(conn, login_packet.username_len);
    } else {
       SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket_);
       connections_->release(connection_key);
@@ -339,7 +338,5 @@ void Networking::handle_write(const bool op_success, const int connection_key,
 
    conn.overlapped_.op = Operation::kReadLogin;
    conn.buf_used_ = 0;
-   conn.target_buf_len_ = 1;
-   conn.target_buf_len_ = packet::Login::required_size(conn.username_len_);
    read(conn);
 }

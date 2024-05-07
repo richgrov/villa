@@ -7,7 +7,7 @@ namespace simulo {
 
 class Player {
 public:
-   Player(net::Connection &conn);
+   Player(net::Connection &conn, StringSize username_len);
 
 private:
    net::Connection &conn_;

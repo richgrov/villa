@@ -24,7 +24,7 @@ int Handshake::read(const unsigned char *buf, const std::size_t len) {
    return expected_size - len;
 }
 
-bool Login::process(const unsigned char *buf, const StringSize expected_username_len) {
+bool Login::process(const unsigned char *buf, const std::size_t len) {
    const unsigned char *cursor = buf;
 
    if (*cursor != kId) {
@@ -37,7 +37,7 @@ bool Login::process(const unsigned char *buf, const StringSize expected_username
 
    cursor += sizeof(protocol_version);
    username_len = read_string_header(cursor);
-   if (username_len != expected_username_len) {
+   if (username_len < 1 || Login::required_size(username_len) > len) {
       return false;
    }
 

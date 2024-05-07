@@ -35,8 +35,8 @@ void Server::tick() {
    networking_.poll();
 
    while (!accepted_connections_.empty()) {
-      net::Connection &conn = accepted_connections_.back();
+      net::IncomingConnection &incoming = accepted_connections_.back();
       accepted_connections_.pop_back();
-      players_->emplace(conn);
+      players_->emplace(incoming.conn, incoming.username_len);
    }
 }

@@ -32,7 +32,7 @@ struct Login {
 
    static const std::size_t kMaxSize;
 
-   bool process(const unsigned char *buf, StringSize expected_username_len);
+   bool process(const unsigned char *buf, std::size_t expected_username_len);
 };
 
 inline constexpr std::size_t Login::kMaxSize = Login::required_size(16);
