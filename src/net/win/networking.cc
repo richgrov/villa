@@ -292,12 +292,22 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       return;
    }
 
-   if (accepted_connections_.size() < accepted_connections_.capacity()) {
-      accepted_connections_.emplace_back(conn, login_packet.username_len);
-   } else {
+   if (accepted_connections_.size() == accepted_connections_.capacity()) {
       SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket_);
       connections_->release(connection_key);
+      return;
    }
+
+   std::array<char, 16> username;
+   for (int i = 0; i < login_packet.username_len; ++i) {
+      username[i] = static_cast<char>(login_packet.username[i]);
+   }
+
+   if (login_packet.username_len < 16) {
+      username[login_packet.username_len] = '\0';
+   }
+
+   accepted_connections_.emplace_back(conn, username);
 }
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {

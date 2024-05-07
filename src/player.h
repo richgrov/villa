@@ -7,10 +7,11 @@ namespace simulo {
 
 class Player {
 public:
-   Player(net::Connection &conn, StringSize username_len);
+   Player(net::Connection &conn, std::array<char, 16> username);
 
 private:
    net::Connection &conn_;
+   std::array<char, 16> username_;
 };
 
 } // namespace simulo

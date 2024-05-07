@@ -47,9 +47,10 @@ private:
 
 struct IncomingConnection {
    Connection &conn;
-   StringSize username_len; // TODO: Replace with username char[]
+   // Will be null-terminated if username length is <16. Otherwise, full buffer is used.
+   std::array<char, 16> username;
 
-   IncomingConnection(Connection &c, StringSize ul) : conn(c), username_len(ul) {}
+   IncomingConnection(Connection &c, std::array<char, 16> u) : conn(c), username(u) {}
 };
 
 class Networking {
