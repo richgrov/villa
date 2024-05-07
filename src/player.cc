@@ -1,7 +1,8 @@
 #include "player.h"
 
-#include "net/networking.h"
 #include <iostream>
+
+#include "net/networking.h"
 
 using namespace simulo;
 
