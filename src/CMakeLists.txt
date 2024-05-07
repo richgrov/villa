@@ -15,6 +15,8 @@ set(SOURCE_FILES
 
    "util/slab.h"
 
+   "player.cc"
+   "player.h"
    "server.cc"
    "server.h"
 

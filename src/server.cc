@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <thread>
 
 #include "net/win/networking.h"
@@ -14,7 +15,10 @@ constexpr std::size_t kAcceptQueueCapacity = 8;
 
 }; // namespace
 
-Server::Server() : accepted_connections_(), networking_(25565, accepted_connections_) {
+Server::Server()
+    : accepted_connections_(), players_(std::make_unique<PlayerSlab>()),
+      networking_(25565, accepted_connections_) {
+
    accepted_connections_.reserve(kAcceptQueueCapacity);
 }
 
@@ -33,6 +37,6 @@ void Server::tick() {
    while (!accepted_connections_.empty()) {
       net::Connection &conn = accepted_connections_.back();
       accepted_connections_.pop_back();
-      std::cout << conn.username_len() << "\n";
+      players_->emplace(conn);
    }
 }

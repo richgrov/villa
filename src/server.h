@@ -2,9 +2,13 @@
 #define SIMULO_SERVER_H_
 
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include "net/networking.h"
+#include "player.h"
+#include "util/slab.h"
+
 namespace simulo {
 
 class Server {
@@ -17,6 +21,8 @@ private:
    void tick();
 
    std::vector<std::reference_wrapper<net::Connection>> accepted_connections_;
+   using PlayerSlab = Slab<Player, 256>;
+   std::unique_ptr<PlayerSlab> players_;
    net::Networking networking_;
 };
 
