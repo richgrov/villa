@@ -32,6 +32,8 @@ struct OverlappedWithOp : OVERLAPPED {
 class Connection {
 public:
    explicit Connection(SOCKET socket);
+   Connection(Connection &&other) = delete;
+   Connection(Connection &other) = delete;
    ~Connection();
 
    StringSize username_len() {
