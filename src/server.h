@@ -1,12 +1,10 @@
 #ifndef SIMULO_SERVER_H_
 #define SIMULO_SERVER_H_
 
-#include "net/networking.h"
-#include "net/win/networking.h"
-
 #include <functional>
 #include <vector>
 
+#include "net/networking.h"
 namespace simulo {
 
 class Server {
