@@ -15,12 +15,12 @@ int Handshake::read(const unsigned char *buf, const std::size_t len) {
       return -1;
    }
 
-   username_len = read_string_header(&buf[1]);
+   username_len = read_mc_short(&buf[1]);
    if (username_len < 1 || username_len > 16) {
       return -1;
    }
 
-   std::size_t expected_size = 1 + string_size(username_len);
+   std::size_t expected_size = 1 + MC_STRING_SIZE(username_len);
    return expected_size - len;
 }
 
@@ -33,22 +33,22 @@ bool Login::process(const unsigned char *buf, const std::size_t len) {
 
    cursor = buf + 1;
 
-   protocol_version = read_int(cursor);
+   protocol_version = read_mc_int(cursor);
 
    cursor += sizeof(protocol_version);
-   username_len = read_string_header(cursor);
+   username_len = read_mc_short(cursor);
    if (username_len < 1 || Login::required_size(username_len) > len) {
       return false;
    }
 
    cursor = buf + 1 + sizeof(protocol_version) + sizeof(username_len);
 
-   if (!read_string_data(cursor, username_len, username)) {
+   if (!read_mc_string(cursor, username_len, username)) {
       return false;
    }
 
-   cursor += username_len * kCharSize;
-   map_seed = read_long(cursor);
+   cursor += username_len * sizeof(McChar);
+   map_seed = read_mc_long(cursor);
 
    cursor += sizeof(map_seed);
    dimension = *cursor;

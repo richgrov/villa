@@ -17,16 +17,16 @@ namespace packet {
 
 struct Login {
    static constexpr std::int32_t kProtocolVersion = 14;
-   static constexpr UByte kId = 1;
+   static constexpr unsigned char kId = 1;
 
    std::int32_t protocol_version;
-   StringSize username_len;
-   char16_t username[16];
+   int16_t username_len;
+   McChar username[16];
    std::int64_t map_seed;
-   UByte dimension;
+   unsigned char dimension;
 
    static constexpr std::size_t required_size(std::size_t username_code_points) {
-      return sizeof(protocol_version) + string_size(username_code_points) + sizeof(map_seed) +
+      return sizeof(protocol_version) + MC_STRING_SIZE(username_code_points) + sizeof(map_seed) +
              sizeof(dimension);
    }
 
@@ -40,14 +40,14 @@ inline constexpr std::size_t Login::kMaxSize = Login::required_size(16);
 // The username sent in the handshake packet is ignored by this implementation. We only care about
 // its length to know the size of the following Login packet.
 struct Handshake {
-   static constexpr UByte kId = 2;
+   static constexpr unsigned char kId = 2;
    static constexpr unsigned char kOfflineModeResponse[] = {kId, 0, 1, 0, '-'};
 
-   StringSize username_len;
+   int16_t username_len;
 
    int read(const unsigned char *buf, std::size_t len);
 
-   static const std::size_t kMinSize = sizeof(username_len) + string_size(1);
+   static const std::size_t kMinSize = sizeof(username_len) + MC_STRING_SIZE(1);
 };
 
 } // namespace packet
