@@ -48,7 +48,7 @@ bool Login::process(const unsigned char *buf, const std::size_t len) {
    }
 
    cursor += username_len * kCharSize;
-   map_seed = read_int(cursor);
+   map_seed = read_long(cursor);
 
    cursor += sizeof(map_seed);
    dimension = *cursor;
