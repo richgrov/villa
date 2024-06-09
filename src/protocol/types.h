@@ -28,11 +28,7 @@ static inline int64_t read_mc_long(const unsigned char *buf) {
 
 typedef uint16_t McChar;
 
-#ifdef __cplusplus
-extern "C" bool read_mc_string(const unsigned char *buf, int16_t num_code_units, McChar *dest);
-#else
 bool read_mc_string(const unsigned char *buf, int16_t num_code_units, McChar *dest);
-#endif
 
 #define MC_STRING_SIZE(n_chars) (sizeof(int16_t) + (n_chars) * sizeof(McChar))
 
