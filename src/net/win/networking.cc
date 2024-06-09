@@ -28,7 +28,7 @@ void close_or_log_error(SOCKET socket) {
    }
 
    int err = WSAGetLastError();
-   SIMULO_PANIC("Failed to close {}: {}", socket, err);
+   SIMULO_PANIC("Failed to close %llu: %d", socket, err);
 }
 
 void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
@@ -140,7 +140,7 @@ void Networking::poll() {
             break;
 
          default:
-            SIMULO_PANIC("op = {}", enum_ordinal(with_op->op));
+            SIMULO_PANIC("op = %d", static_cast<int>(with_op->op));
          }
       }
    }
@@ -153,13 +153,13 @@ void Networking::accept() {
 
    if (!success) {
       int err = WSAGetLastError();
-      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "Abnormal error from AcceptEx: {}", err);
+      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "Abnormal error from AcceptEx: %d", err);
    }
 }
 
 void Networking::handle_accept(const bool success) {
    if (!success) {
-      SIMULO_DEBUG_LOG("Failed to accept {}: {}", accepted_socket_, GetLastError());
+      SIMULO_DEBUG_LOG("Failed to accept %llu: %lu", accepted_socket_, GetLastError());
       close_or_log_error(accepted_socket_);
       return;
    }
@@ -168,7 +168,7 @@ void Networking::handle_accept(const bool success) {
    {
       key = connections_->emplace(accepted_socket_);
       if (key == kInvalidSlabKey) {
-         SIMULO_DEBUG_LOG("Out of connection objects for {}", accepted_socket_)
+         SIMULO_DEBUG_LOG("Out of connection objects for %llu", accepted_socket_);
          close_or_log_error(accepted_socket_);
          return;
       }
@@ -183,7 +183,8 @@ void Networking::handle_accept(const bool success) {
                               static_cast<ULONG_PTR>(key), 0);
 
    if (client_completion_port == nullptr) {
-      SIMULO_DEBUG_LOG("Failed to create completion port for {}: {}", conn.socket_, GetLastError());
+      SIMULO_DEBUG_LOG("Failed to create completion port for %llu: %lu", conn.socket_,
+                       GetLastError());
 
       connections_->release(key);
       return;
@@ -203,7 +204,7 @@ void Networking::read(Connection &conn) {
 
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
-      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = {}", err);
+      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = %d", err);
    }
 }
 
@@ -211,18 +212,18 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
-      SIMULO_DEBUG_LOG("Read failed for {}: {}", conn.socket_, GetLastError());
+      SIMULO_DEBUG_LOG("Read failed for %lld: %lu", conn.socket_, GetLastError());
       connections_->release(connection_key);
    }
 
    if (len < 1) {
-      SIMULO_DEBUG_LOG("EOF from {}", conn.socket_);
+      SIMULO_DEBUG_LOG("EOF from %lld", conn.socket_);
       connections_->release(connection_key);
       return;
    }
 
    SIMULO_DEBUG_ASSERT(len + static_cast<DWORD>(conn.buf_used_) <= conn.buf_.size(),
-                       "conn={}, len={}, used={}", connection_key, len, conn.buf_used_);
+                       "conn=%d, len=%lu, used=%d", connection_key, len, conn.buf_used_);
 
    conn.buf_used_ += len;
    if (conn.buf_used_ < conn.target_buf_len_) {
@@ -240,7 +241,7 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
       break;
 
    default:
-      SIMULO_PANIC("invalid op {}", enum_ordinal(conn.overlapped_.op));
+      SIMULO_PANIC("invalid op %d", static_cast<int>(conn.overlapped_.op));
    }
 }
 
@@ -250,13 +251,13 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
        remaining_handshake_bytes(conn.buf_.data(), conn.buf_used_, &handshake);
    switch (min_remaining_bytes) {
    case -1:
-      SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket_);
+      SIMULO_DEBUG_LOG("Couldn't read handshake from %llu", conn.socket_);
       connections_->release(connection_key);
       break;
 
    case 0:
       SIMULO_DEBUG_ASSERT(handshake.username_len > 0 && handshake.username_len <= 16,
-                          "username len = {}", handshake.username_len);
+                          "username len = %d", handshake.username_len);
       conn.target_buf_len_ = LOGIN_PACKET_SIZE(handshake.username_len);
 
       conn.overlapped_.op = Operation::kWriteHandshake;
@@ -265,10 +266,10 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 
    default:
       SIMULO_DEBUG_ASSERT(min_remaining_bytes > 0 && min_remaining_bytes <= conn.buf_.size(),
-                          "remaining = {}", min_remaining_bytes);
+                          "remaining = %d", min_remaining_bytes);
 
       conn.target_buf_len_ += static_cast<unsigned int>(min_remaining_bytes);
-      SIMULO_DEBUG_ASSERT(conn.target_buf_len_ <= conn.buf_.size(), "target={}",
+      SIMULO_DEBUG_ASSERT(conn.target_buf_len_ <= conn.buf_.size(), "target=%d",
                           conn.target_buf_len_);
 
       read(conn);
@@ -280,20 +281,20 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
    Login login_packet{};
    bool ok = read_login_pkt(conn.buf_.data(), conn.buf_used_, &login_packet);
    if (!ok) {
-      SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket_);
+      SIMULO_DEBUG_LOG("Couldn't read login from %llu", conn.socket_);
       connections_->release(connection_key);
       return;
    }
 
    if (login_packet.protocol_version != BETA173_PROTOCOL_VER) {
-      SIMULO_DEBUG_LOG("Invalid protocol version from {}: {}", conn.socket_,
+      SIMULO_DEBUG_LOG("Invalid protocol version from %llu: %d", conn.socket_,
                        login_packet.protocol_version);
       connections_->release(connection_key);
       return;
    }
 
    if (accepted_connections_.size() == accepted_connections_.capacity()) {
-      SIMULO_DEBUG_LOG("Couldn't accept {} because join queue is full", conn.socket_);
+      SIMULO_DEBUG_LOG("Couldn't accept %llu because join queue is full", conn.socket_);
       connections_->release(connection_key);
       return;
    }
@@ -312,7 +313,7 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {
    SIMULO_DEBUG_ASSERT(conn.overlapped_.op == Operation::kWriteHandshake,
-                       "expected writing op but got {}", enum_ordinal(conn.overlapped_.op));
+                       "expected writing op but got %d", static_cast<int>(conn.overlapped_.op));
 
    WSABUF buf;
    // Buffer is read-only- safe to const_cast
@@ -324,7 +325,7 @@ void Networking::write(Connection &conn, const unsigned char *data, const unsign
    int result = WSASend(conn.socket_, &buf, 1, nullptr, 0, &conn.overlapped_, nullptr);
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
-      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = {}", err);
+      SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = %d", err);
    }
 }
 
@@ -333,14 +334,14 @@ void Networking::handle_write(const bool op_success, const int connection_key,
    Connection &conn = connections_->get(connection_key);
 
    if (!op_success) {
-      SIMULO_DEBUG_LOG("Write failed for {}: {}", conn.socket_, GetLastError());
+      SIMULO_DEBUG_LOG("Write failed for %llu: %lu", conn.socket_, GetLastError());
       connections_->release(connection_key);
    }
 
    // Although not official, WSASend has never been observed to partially complete unless the socket
    // loses connection. Keep things simple by asserting that the operation should fully complete.
    if (len < conn.buf_used_) {
-      SIMULO_DEBUG_LOG("Only wrote {} bytes to {} instead of {}", len, conn.socket_,
+      SIMULO_DEBUG_LOG("Only wrote %lu bytes to %llu instead of %d", len, conn.socket_,
                        conn.buf_used_);
       connections_->release(connection_key);
       return;
