@@ -8,7 +8,7 @@ endif()
 set(SOURCE_FILES
    "net/networking.h"
 
-   "protocol/packets.cc"
+   "protocol/packets.c"
    "protocol/packets.h"
    "protocol/types.c"
    "protocol/types.h"

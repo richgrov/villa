@@ -1,56 +1,55 @@
 #ifndef SIMULO_PROTOCOL_PACKETS_H_
 #define SIMULO_PROTOCOL_PACKETS_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <stdbool.h>
+#include <stdint.h>
 
 #include "types.h"
 
-namespace simulo {
+#define MAX_USERNAME_LEN 16
+#define BETA173_PROTOCOL_VER 14
 
-struct ReadResult {
-   int min_remaining_bytes;
-   int progress;
-};
-
-namespace packet {
-
-struct Login {
-   static constexpr std::int32_t kProtocolVersion = 14;
-   static constexpr unsigned char kId = 1;
-
-   std::int32_t protocol_version;
+#define LOGIN_ID 1
+typedef struct {
+   int32_t protocol_version;
    int16_t username_len;
    McChar username[16];
-   std::int64_t map_seed;
-   unsigned char dimension;
+   int64_t map_seed;
+   uint8_t dimension;
+} Login;
 
-   static constexpr std::size_t required_size(std::size_t username_code_points) {
-      return sizeof(protocol_version) + MC_STRING_SIZE(username_code_points) + sizeof(map_seed) +
-             sizeof(dimension);
-   }
+#ifdef __cplusplus
+extern "C" bool read_login_pkt(const unsigned char *buf, size_t len, Login *pkt);
+#else
+bool read_login_pkt(const unsigned char *buf, size_t len, Login *pkt);
+#endif
 
-   static const std::size_t kMaxSize;
+#define LOGIN_PACKET_SIZE(username_len)                                                            \
+   (1 +                            /* packet id */                                                 \
+    4 +                            /* protocol version */                                          \
+    MC_STRING_SIZE(username_len) + /* username */                                                  \
+    8 +                            /* seed */                                                      \
+    1)                             /* dimension */
 
-   bool process(const unsigned char *buf, std::size_t expected_username_len);
-};
-
-inline constexpr std::size_t Login::kMaxSize = Login::required_size(16);
-
-// The username sent in the handshake packet is ignored by this implementation. We only care about
-// its length to know the size of the following Login packet.
-struct Handshake {
-   static constexpr unsigned char kId = 2;
-   static constexpr unsigned char kOfflineModeResponse[] = {kId, 0, 1, 0, '-'};
-
+#define HANDSHAKE_ID 2
+// The username sent in the handshake packet is ignored by this implementation. We only care
+// about its length to know the size of the following Login packet.
+typedef struct {
    int16_t username_len;
+} Handshake;
 
-   int read(const unsigned char *buf, std::size_t len);
-
-   static const std::size_t kMinSize = sizeof(username_len) + MC_STRING_SIZE(1);
+const unsigned char OFFLINE_MODE_RESPONSE[] = {
+    HANDSHAKE_ID, // packet id
+    0,            // username length high byte
+    1,            // username legth low byte
+    0,            // first char high byte
+    '-'           // first char low byte
 };
 
-} // namespace packet
-} // namespace simulo
+#ifdef __cplusplus
+extern "C" int remaining_handshake_bytes(const unsigned char *buf, size_t len, Handshake *pkt);
+#else
+int remaining_handshake_bytes(const unsigned char *buf, size_t len, Handshake *pkt);
+#endif
 
 #endif // !SIMULO_PROTOCOL_PACKETS_H_

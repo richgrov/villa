@@ -245,8 +245,9 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
 }
 
 void Networking::handle_read_handshake(int connection_key, Connection &conn) {
-   packet::Handshake handshake{};
-   int min_remaining_bytes = handshake.read(conn.buf_.data(), conn.buf_used_);
+   Handshake handshake{};
+   int min_remaining_bytes =
+       remaining_handshake_bytes(conn.buf_.data(), conn.buf_used_, &handshake);
    switch (min_remaining_bytes) {
    case -1:
       SIMULO_DEBUG_LOG("Couldn't read handshake from {}", conn.socket_);
@@ -256,11 +257,10 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
    case 0:
       SIMULO_DEBUG_ASSERT(handshake.username_len > 0 && handshake.username_len <= 16,
                           "username len = {}", handshake.username_len);
-      conn.target_buf_len_ = packet::Login::required_size(handshake.username_len);
+      conn.target_buf_len_ = LOGIN_PACKET_SIZE(handshake.username_len);
 
       conn.overlapped_.op = Operation::kWriteHandshake;
-      write(conn, packet::Handshake::kOfflineModeResponse,
-            sizeof(packet::Handshake::kOfflineModeResponse));
+      write(conn, OFFLINE_MODE_RESPONSE, sizeof(OFFLINE_MODE_RESPONSE));
       break;
 
    default:
@@ -277,15 +277,15 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 }
 
 void Networking::handle_read_login(int connection_key, Connection &conn) {
-   packet::Login login_packet{};
-   bool ok = login_packet.process(conn.buf_.data(), conn.buf_used_);
+   Login login_packet{};
+   bool ok = read_login_pkt(conn.buf_.data(), conn.buf_used_, &login_packet);
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from {}", conn.socket_);
       connections_->release(connection_key);
       return;
    }
 
-   if (login_packet.protocol_version != packet::Login::kProtocolVersion) {
+   if (login_packet.protocol_version != BETA173_PROTOCOL_VER) {
       SIMULO_DEBUG_LOG("Invalid protocol version from {}: {}", conn.socket_,
                        login_packet.protocol_version);
       connections_->release(connection_key);
