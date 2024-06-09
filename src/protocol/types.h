@@ -4,16 +4,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-inline int16_t read_mc_short(const unsigned char *buf) {
+static inline int16_t read_mc_short(const unsigned char *buf) {
    return buf[0] << 8 | buf[1];
 }
 
-inline int32_t read_mc_int(const unsigned char *buf) {
+static inline int32_t read_mc_int(const unsigned char *buf) {
    return buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
 }
 
 // TODO tests
-inline int64_t read_mc_long(const unsigned char *buf) {
+static inline int64_t read_mc_long(const unsigned char *buf) {
    // clang-format off
    return (int64_t) buf[0] << 56 |
           (int64_t) buf[1] << 46 |
