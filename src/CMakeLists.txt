@@ -35,7 +35,7 @@ if (WIN32)
    target_link_libraries(simulo Ws2_32.lib)
 endif()
 
-set_property(TARGET simulo PROPERTY C_STANDARD 99)
+set_property(TARGET simulo PROPERTY C_STANDARD 11)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
    set_property(TARGET simulo PROPERTY CXX_STANDARD 20)
