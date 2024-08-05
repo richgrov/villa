@@ -34,9 +34,10 @@ void close_or_log_error(SOCKET socket) {
 void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
    GUID accept_ex_guid = WSAID_ACCEPTEX;
    DWORD unused;
-   int load_result =
-       WSAIoctl(listener, SIO_GET_EXTENSION_FUNCTION_POINTER, &accept_ex_guid,
-                sizeof(accept_ex_guid), fn, sizeof(LPFN_ACCEPTEX), &unused, nullptr, nullptr);
+   int load_result = WSAIoctl(
+       listener, SIO_GET_EXTENSION_FUNCTION_POINTER, &accept_ex_guid, sizeof(accept_ex_guid), fn,
+       sizeof(LPFN_ACCEPTEX), &unused, nullptr, nullptr
+   );
 
    if (load_result == SOCKET_ERROR) {
       throw create_func_error("WSAIoctl", WSAGetLastError());
@@ -50,8 +51,9 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 Connection::Connection(const SOCKET socket)
     : socket_(socket), overlapped_{}, buf_used_(0), target_buf_len_(1) {}
 
-Networking::Networking(const std::uint16_t port,
-                       std::vector<IncomingConnection> &accepted_connections)
+Networking::Networking(
+    const std::uint16_t port, std::vector<IncomingConnection> &accepted_connections
+)
     : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
       overlapped_{}, accepted_connections_(accepted_connections) {
 
@@ -92,8 +94,9 @@ void Networking::listen() {
       throw create_func_error("listen", WSAGetLastError());
    }
 
-   HANDLE listen_port = CreateIoCompletionPort(reinterpret_cast<HANDLE>(listen_socket_),
-                                               root_completion_port_, kListenerCompletionKey, 0);
+   HANDLE listen_port = CreateIoCompletionPort(
+       reinterpret_cast<HANDLE>(listen_socket_), root_completion_port_, kListenerCompletionKey, 0
+   );
 
    if (listen_port == nullptr) {
       throw create_func_error("CreateIOCompletionPort", GetLastError());
@@ -142,8 +145,10 @@ void Networking::poll() {
 
 void Networking::accept() {
    accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-   BOOL success = accept_ex_(listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen,
-                             kAddressLen, nullptr, &overlapped_);
+   BOOL success = accept_ex_(
+       listen_socket_, accepted_socket_, accept_buf_, 0, kAddressLen, kAddressLen, nullptr,
+       &overlapped_
+   );
 
    if (!success) {
       int err = WSAGetLastError();
@@ -172,13 +177,14 @@ void Networking::handle_accept(const bool success) {
 
    Connection &conn = connections_->get(key);
 
-   HANDLE client_completion_port =
-       CreateIoCompletionPort(reinterpret_cast<HANDLE>(conn.socket_), root_completion_port_,
-                              static_cast<ULONG_PTR>(key), 0);
+   HANDLE client_completion_port = CreateIoCompletionPort(
+       reinterpret_cast<HANDLE>(conn.socket_), root_completion_port_, static_cast<ULONG_PTR>(key), 0
+   );
 
    if (client_completion_port == nullptr) {
-      SIMULO_DEBUG_LOG("Failed to create completion port for %llu: %lu", conn.socket_,
-                       GetLastError());
+      SIMULO_DEBUG_LOG(
+          "Failed to create completion port for %llu: %lu", conn.socket_, GetLastError()
+      );
 
       release_connection(key);
       return;
@@ -216,8 +222,10 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
       return;
    }
 
-   SIMULO_DEBUG_ASSERT(len + static_cast<DWORD>(conn.buf_used_) <= conn.buf_.size(),
-                       "conn=%d, len=%lu, used=%d", connection_key, len, conn.buf_used_);
+   SIMULO_DEBUG_ASSERT(
+       len + static_cast<DWORD>(conn.buf_used_) <= conn.buf_.size(), "conn=%d, len=%lu, used=%d",
+       connection_key, len, conn.buf_used_
+   );
 
    conn.buf_used_ += len;
    if (conn.buf_used_ < conn.target_buf_len_) {
@@ -250,8 +258,10 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    case 0:
-      SIMULO_DEBUG_ASSERT(handshake.username_len > 0 && handshake.username_len <= 16,
-                          "username len = %d", handshake.username_len);
+      SIMULO_DEBUG_ASSERT(
+          handshake.username_len > 0 && handshake.username_len <= 16, "username len = %d",
+          handshake.username_len
+      );
       conn.target_buf_len_ = LOGIN_PACKET_SIZE(handshake.username_len);
 
       conn.overlapped_.op = Operation::kWriteHandshake;
@@ -259,12 +269,15 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       break;
 
    default:
-      SIMULO_DEBUG_ASSERT(min_remaining_bytes > 0 && min_remaining_bytes <= conn.buf_.size(),
-                          "remaining = %d", min_remaining_bytes);
+      SIMULO_DEBUG_ASSERT(
+          min_remaining_bytes > 0 && min_remaining_bytes <= conn.buf_.size(), "remaining = %d",
+          min_remaining_bytes
+      );
 
       conn.target_buf_len_ += static_cast<unsigned int>(min_remaining_bytes);
-      SIMULO_DEBUG_ASSERT(conn.target_buf_len_ <= conn.buf_.size(), "target=%d",
-                          conn.target_buf_len_);
+      SIMULO_DEBUG_ASSERT(
+          conn.target_buf_len_ <= conn.buf_.size(), "target=%d", conn.target_buf_len_
+      );
 
       read(conn);
       break;
@@ -281,8 +294,9 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
    }
 
    if (login_packet.protocol_version != BETA173_PROTOCOL_VER) {
-      SIMULO_DEBUG_LOG("Invalid protocol version from %llu: %d", conn.socket_,
-                       login_packet.protocol_version);
+      SIMULO_DEBUG_LOG(
+          "Invalid protocol version from %llu: %d", conn.socket_, login_packet.protocol_version
+      );
       release_connection(connection_key);
       return;
    }
@@ -306,8 +320,10 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
 }
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {
-   SIMULO_DEBUG_ASSERT(conn.overlapped_.op == Operation::kWriteHandshake,
-                       "expected writing op but got %d", static_cast<int>(conn.overlapped_.op));
+   SIMULO_DEBUG_ASSERT(
+       conn.overlapped_.op == Operation::kWriteHandshake, "expected writing op but got %d",
+       static_cast<int>(conn.overlapped_.op)
+   );
 
    WSABUF buf;
    // Buffer is read-only- safe to const_cast
@@ -334,8 +350,9 @@ void Networking::handle_write(const bool op_success, const int connection_key, c
    // Although not official, WSASend has never been observed to partially complete unless the socket
    // loses connection. Keep things simple by asserting that the operation should fully complete.
    if (len < conn.buf_used_) {
-      SIMULO_DEBUG_LOG("Only wrote %lu bytes to %llu instead of %d", len, conn.socket_,
-                       conn.buf_used_);
+      SIMULO_DEBUG_LOG(
+          "Only wrote %lu bytes to %llu instead of %d", len, conn.socket_, conn.buf_used_
+      );
       release_connection(connection_key);
       return;
    }
