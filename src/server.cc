@@ -9,18 +9,11 @@
 
 using namespace simulo;
 
-namespace {
-
-constexpr std::size_t kAcceptQueueCapacity = 8;
-
-}; // namespace
+namespace {}; // namespace
 
 Server::Server()
     : accepted_connections_(), players_(std::make_unique<PlayerSlab>()),
-      networking_(25565, accepted_connections_) {
-
-   accepted_connections_.reserve(kAcceptQueueCapacity);
-}
+      networking_(25565, accepted_connections_) {}
 
 void Server::run() {
    networking_.listen();
@@ -32,11 +25,10 @@ void Server::run() {
 }
 
 void Server::tick() {
-   networking_.poll();
+   int num_accepted = networking_.poll();
 
-   while (!accepted_connections_.empty()) {
-      net::IncomingConnection &incoming = accepted_connections_.back();
-      accepted_connections_.pop_back();
+   for (int i = 0; i < num_accepted; ++i) {
+      net::IncomingConnection &incoming = accepted_connections_[i];
       players_->emplace(*incoming.conn, incoming.username);
    }
 }

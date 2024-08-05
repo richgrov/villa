@@ -8,6 +8,7 @@
 #include <WinSock2.h>
 #include <vector>
 
+#include "config.h"
 #include "protocol/packets.h"
 #include "util/debug_assert.h"
 #include "util/slab.h"
@@ -48,10 +49,9 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-Networking::Networking(
-   const std::uint16_t port, std::vector<IncomingConnection> &accepted_connections
-)
-    : accepted_socket_(INVALID_SOCKET), overlapped_{}, accepted_connections_(accepted_connections) {
+Networking::Networking(const std::uint16_t port, IncomingConnection *accepted_connections)
+    : accepted_socket_(INVALID_SOCKET), overlapped_{}, accepted_connections_(accepted_connections),
+      num_accepted_(0) {
 
    WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -101,7 +101,9 @@ void Networking::listen() {
    accept();
 }
 
-void Networking::poll() {
+int Networking::poll() {
+   num_accepted_ = 0;
+
    DWORD len;
    ULONG_PTR completion_key;
    WSAOVERLAPPED *overlapped;
@@ -137,6 +139,8 @@ void Networking::poll() {
          }
       }
    }
+
+   return num_accepted_;
 }
 
 void Networking::accept() {
@@ -296,7 +300,7 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       return;
    }
 
-   if (accepted_connections_.size() == accepted_connections_.capacity()) {
+   if (num_accepted_ >= SIMULO_JOIN_QUEUE_CAPACITY) {
       SIMULO_DEBUG_LOG("Couldn't accept %llu because join queue is full", conn.socket);
       release_connection(connection_key);
       return;
@@ -311,10 +315,9 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       username[login_packet.username_len] = '\0';
    }
 
-   IncomingConnection inc;
-   inc.conn = &conn;
-   memcpy(&inc.username, username.data(), username.size());
-   accepted_connections_.emplace_back(std::move(inc));
+   IncomingConnection *inc = &accepted_connections_[num_accepted_++];
+   inc->conn = &conn;
+   memcpy(inc->username, username.data(), username.size());
 }
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {

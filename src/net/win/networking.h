@@ -44,11 +44,12 @@ typedef struct {
 
 class Networking {
 public:
-   explicit Networking(std::uint16_t port, std::vector<IncomingConnection> &accepted_connections);
+   explicit Networking(std::uint16_t port, IncomingConnection *accepted_connections);
    ~Networking();
 
    void listen();
-   void poll();
+   // Returns the number of connections added to the join queue
+   int poll();
 
 private:
    // AcceptEx requires length of address to be at least 16 bytes more than its
@@ -78,7 +79,8 @@ private:
    unsigned char accept_buf_[kAddressLen * 2]; // *2 to hold the local and remote address
    WSAOVERLAPPED overlapped_;
 
-   std::vector<IncomingConnection> &accepted_connections_;
+   IncomingConnection *accepted_connections_;
+   int num_accepted_;
 };
 
 } // namespace simulo::net

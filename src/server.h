@@ -1,9 +1,10 @@
 #ifndef SIMULO_SERVER_H_
 #define SIMULO_SERVER_H_
 
+#include <array>
 #include <memory>
-#include <vector>
 
+#include "config.h"
 #include "net/networking.h"
 #include "player.h"
 #include "util/slab.h"
@@ -19,7 +20,7 @@ public:
 private:
    void tick();
 
-   std::vector<net::IncomingConnection> accepted_connections_;
+   net::IncomingConnection accepted_connections_[SIMULO_JOIN_QUEUE_CAPACITY];
    using PlayerSlab = Slab<Player, 256>;
    std::unique_ptr<PlayerSlab> players_;
    net::Networking networking_;
