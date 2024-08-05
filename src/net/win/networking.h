@@ -37,7 +37,7 @@ public:
 private:
    SOCKET socket_;
    OverlappedWithOp overlapped_;
-   std::array<unsigned char, LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)> buf_;
+   unsigned char buf_[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
    unsigned char buf_used_;
    unsigned char target_buf_len_;
 

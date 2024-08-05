@@ -196,8 +196,8 @@ void Networking::handle_accept(const bool success) {
 
 void Networking::read(Connection &conn) {
    WSABUF buf;
-   buf.buf = reinterpret_cast<CHAR *>(&conn.buf_.data()[conn.buf_used_]);
-   buf.len = conn.buf_.size() - conn.buf_used_;
+   buf.buf = reinterpret_cast<CHAR *>(&conn.buf_[conn.buf_used_]);
+   buf.len = sizeof(conn.buf_) - conn.buf_used_;
 
    DWORD flags = 0;
    int result = WSARecv(conn.socket_, &buf, 1, nullptr, &flags, &conn.overlapped_, nullptr);
@@ -223,7 +223,7 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
    }
 
    SIMULO_DEBUG_ASSERT(
-       len + static_cast<DWORD>(conn.buf_used_) <= conn.buf_.size(), "conn=%d, len=%lu, used=%d",
+       len + static_cast<DWORD>(conn.buf_used_) <= sizeof(conn.buf_), "conn=%d, len=%lu, used=%d",
        connection_key, len, conn.buf_used_
    );
 
@@ -249,8 +249,7 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
 
 void Networking::handle_read_handshake(int connection_key, Connection &conn) {
    Handshake handshake{};
-   int min_remaining_bytes =
-       remaining_handshake_bytes(conn.buf_.data(), conn.buf_used_, &handshake);
+   int min_remaining_bytes = remaining_handshake_bytes(conn.buf_, conn.buf_used_, &handshake);
    switch (min_remaining_bytes) {
    case -1:
       SIMULO_DEBUG_LOG("Couldn't read handshake from %llu", conn.socket_);
@@ -270,13 +269,13 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 
    default:
       SIMULO_DEBUG_ASSERT(
-          min_remaining_bytes > 0 && min_remaining_bytes <= conn.buf_.size(), "remaining = %d",
+          min_remaining_bytes > 0 && min_remaining_bytes <= sizeof(conn.buf_), "remaining = %d",
           min_remaining_bytes
       );
 
       conn.target_buf_len_ += static_cast<unsigned int>(min_remaining_bytes);
       SIMULO_DEBUG_ASSERT(
-          conn.target_buf_len_ <= conn.buf_.size(), "target=%d", conn.target_buf_len_
+          conn.target_buf_len_ <= sizeof(conn.buf_), "target=%d", conn.target_buf_len_
       );
 
       read(conn);
@@ -286,7 +285,7 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
 
 void Networking::handle_read_login(int connection_key, Connection &conn) {
    Login login_packet{};
-   bool ok = read_login_pkt(conn.buf_.data(), conn.buf_used_, &login_packet);
+   bool ok = read_login_pkt(conn.buf_, conn.buf_used_, &login_packet);
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from %llu", conn.socket_);
       release_connection(connection_key);
