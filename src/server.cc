@@ -37,6 +37,6 @@ void Server::tick() {
    while (!accepted_connections_.empty()) {
       net::IncomingConnection &incoming = accepted_connections_.back();
       accepted_connections_.pop_back();
-      players_->emplace(incoming.conn, incoming.username);
+      players_->emplace(*incoming.conn, incoming.username);
    }
 }

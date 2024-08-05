@@ -311,9 +311,8 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       username[login_packet.username_len] = '\0';
    }
 
-   IncomingConnection inc = {
-      .conn = conn,
-   };
+   IncomingConnection inc;
+   inc.conn = &conn;
    memcpy(&inc.username, username.data(), username.size());
    accepted_connections_.emplace_back(std::move(inc));
 }

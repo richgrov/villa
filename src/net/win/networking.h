@@ -36,11 +36,11 @@ typedef struct {
    unsigned char target_buf_len;
 } Connection;
 
-struct IncomingConnection {
-   Connection &conn;
+typedef struct {
+   Connection *conn;
    // Will be null-terminated if username length is <16. Otherwise, full buffer is used.
    char username[16];
-};
+} IncomingConnection;
 
 class Networking {
 public:
