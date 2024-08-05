@@ -13,6 +13,7 @@
 #include "util/debug_assert.h"
 #include "util/slab.h"
 
+using namespace simulo;
 using namespace simulo::net;
 
 namespace {
@@ -49,9 +50,12 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-Networking::Networking(const std::uint16_t port, IncomingConnection *accepted_connections)
-    : accepted_socket_(INVALID_SOCKET), overlapped_{}, accepted_connections_(accepted_connections),
-      num_accepted_(0) {
+void net::net_init(
+   Networking *net, const std::uint16_t port, IncomingConnection *accepted_connections
+) {
+   memset(net, 0, sizeof(Networking));
+   net->accepted_socket_ = INVALID_SOCKET;
+   net->accepted_connections_ = accepted_connections;
 
    WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -59,30 +63,30 @@ Networking::Networking(const std::uint16_t port, IncomingConnection *accepted_co
       throw create_func_error("WSAStartup", startup_res);
    }
 
-   root_completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-   if (root_completion_port_ == nullptr) {
+   net->root_completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
+   if (net->root_completion_port_ == nullptr) {
       throw create_func_error("CreateIOCompletionPort", GetLastError());
    }
 
-   listen_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-   if (listen_socket_ == INVALID_SOCKET) {
+   net->listen_socket_ = socket(AF_INET, SOCK_STREAM, 0);
+   if (net->listen_socket_ == INVALID_SOCKET) {
       throw create_func_error("socket", WSAGetLastError());
    }
 
-   load_accept_ex(listen_socket_, &accept_ex_);
+   load_accept_ex(net->listen_socket_, &net->accept_ex_);
 
    SOCKADDR_IN bind_addr;
    bind_addr.sin_family = AF_INET;
    bind_addr.sin_addr.s_addr = INADDR_ANY;
    bind_addr.sin_port = htons(port);
-   if (bind(listen_socket_, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr)) ==
+   if (bind(net->listen_socket_, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr)) ==
        SOCKET_ERROR) {
       throw create_func_error("bind", WSAGetLastError());
    }
 }
 
-Networking::~Networking() {
-   closesocket(listen_socket_);
+void net::net_deinit(Networking *net) {
+   closesocket(net->listen_socket_);
 }
 
 static void release_connection(Networking *net, int connection_key) {
@@ -106,20 +110,21 @@ static void net_accept(Networking *net) {
    }
 }
 
-void Networking::listen() {
-   if (::listen(listen_socket_, 16) == SOCKET_ERROR) {
+void net::net_listen(Networking *net) {
+   if (listen(net->listen_socket_, 16) == SOCKET_ERROR) {
       throw create_func_error("listen", WSAGetLastError());
    }
 
    HANDLE listen_port = CreateIoCompletionPort(
-      reinterpret_cast<HANDLE>(listen_socket_), root_completion_port_, kListenerCompletionKey, 0
+      reinterpret_cast<HANDLE>(net->listen_socket_), net->root_completion_port_,
+      kListenerCompletionKey, 0
    );
 
    if (listen_port == nullptr) {
       throw create_func_error("CreateIOCompletionPort", GetLastError());
    }
 
-   net_accept(this);
+   net_accept(net);
 }
 
 static void net_read(Networking *net, Connection &conn) {
@@ -334,16 +339,17 @@ handle_write(Networking *net, const bool op_success, const int connection_key, c
    net_read(net, conn);
 }
 
-int Networking::poll() {
-   num_accepted_ = 0;
+int net::net_poll(Networking *net) {
+   net->num_accepted_ = 0;
 
    DWORD len;
    ULONG_PTR completion_key;
    WSAOVERLAPPED *overlapped;
 
    while (true) {
-      BOOL op_success =
-         GetQueuedCompletionStatus(root_completion_port_, &len, &completion_key, &overlapped, 0);
+      BOOL op_success = GetQueuedCompletionStatus(
+         net->root_completion_port_, &len, &completion_key, &overlapped, 0
+      );
 
       bool no_more_completions = overlapped == nullptr;
       if (no_more_completions) {
@@ -352,7 +358,7 @@ int Networking::poll() {
 
       bool accepted_new_connection = completion_key == kListenerCompletionKey;
       if (accepted_new_connection) {
-         handle_accept(this, op_success);
+         handle_accept(net, op_success);
       } else {
          auto *with_op = reinterpret_cast<OverlappedWithOp *>(overlapped);
          int conn_key = static_cast<int>(completion_key);
@@ -360,11 +366,11 @@ int Networking::poll() {
          switch (with_op->operation) {
          case OpReadHandshake:
          case OpReadLogin:
-            handle_read(this, op_success, conn_key, len);
+            handle_read(net, op_success, conn_key, len);
             break;
 
          case OpWriteHandshake:
-            handle_write(this, op_success, conn_key, len);
+            handle_write(net, op_success, conn_key, len);
             break;
 
          default:
@@ -373,5 +379,5 @@ int Networking::poll() {
       }
    }
 
-   return num_accepted_;
+   return net->num_accepted_;
 }

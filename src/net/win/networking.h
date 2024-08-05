@@ -44,13 +44,6 @@ typedef struct {
 
 class Networking {
 public:
-   explicit Networking(std::uint16_t port, IncomingConnection *accepted_connections);
-   ~Networking();
-
-   void listen();
-   // Returns the number of connections added to the join queue
-   int poll();
-
    // AcceptEx requires length of address to be at least 16 bytes more than its
    // true size
    static constexpr DWORD kAddressLen = sizeof(sockaddr_in) + 16;
@@ -69,6 +62,14 @@ public:
    IncomingConnection *accepted_connections_;
    int num_accepted_;
 };
+
+void net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections);
+
+void net_deinit(Networking *net);
+
+void net_listen(Networking *net);
+
+int net_poll(Networking *net);
 
 } // namespace simulo::net
 

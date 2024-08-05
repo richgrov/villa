@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "net/networking.h"
+#include "net/win/networking.h"
 #include "player.h"
 #include "util/slab.h"
 
@@ -14,6 +15,9 @@ namespace simulo {
 class Server {
 public:
    explicit Server();
+   inline ~Server() {
+      net::net_deinit(&networking_);
+   }
 
    void run();
 

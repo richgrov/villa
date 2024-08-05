@@ -11,12 +11,12 @@ using namespace simulo;
 
 namespace {}; // namespace
 
-Server::Server()
-    : accepted_connections_(), players_(std::make_unique<PlayerSlab>()),
-      networking_(25565, accepted_connections_) {}
+Server::Server() : accepted_connections_(), players_(std::make_unique<PlayerSlab>()) {
+   net::net_init(&networking_, 25565, accepted_connections_);
+}
 
 void Server::run() {
-   networking_.listen();
+   net::net_listen(&networking_);
 
    while (true) {
       tick();
@@ -25,7 +25,7 @@ void Server::run() {
 }
 
 void Server::tick() {
-   int num_accepted = networking_.poll();
+   int num_accepted = net::net_poll(&networking_);
 
    for (int i = 0; i < num_accepted; ++i) {
       net::IncomingConnection &incoming = accepted_connections_[i];
