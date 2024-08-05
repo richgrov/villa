@@ -51,22 +51,9 @@ public:
    // Returns the number of connections added to the join queue
    int poll();
 
-private:
    // AcceptEx requires length of address to be at least 16 bytes more than its
    // true size
    static constexpr DWORD kAddressLen = sizeof(sockaddr_in) + 16;
-
-   void accept();
-   void handle_accept(bool success);
-   static void read(Connection &conn);
-   void handle_read(bool op_success, int connection_key, DWORD len);
-   void handle_read_handshake(int connection_key, Connection &conn);
-   void handle_read_login(int connection_key, Connection &conn);
-   /// `conn.overlapped_.op` MUST be set to a writing value before calling this
-   static void write(Connection &conn, const unsigned char *buf, unsigned int len);
-   void handle_write(bool op_success, int connection_key, DWORD len);
-
-   void release_connection(int connection_key);
 
    using ConnectionSlab = Slab<Connection, 256>;
    ConnectionSlab connections_;
