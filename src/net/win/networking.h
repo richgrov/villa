@@ -46,10 +46,8 @@ typedef struct {
 // true size
 #define SIMULO_NET_ADDRESS_LEN (sizeof(sockaddr_in) + 16)
 
-class Networking {
-public:
-   using ConnectionSlab = Slab<Connection, 256>;
-   ConnectionSlab connections_;
+typedef struct {
+   Slab<Connection, 256> connections_;
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
    // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
    LPFN_ACCEPTEX accept_ex_;
@@ -61,7 +59,7 @@ public:
 
    IncomingConnection *accepted_connections_;
    int num_accepted_;
-};
+} Networking;
 
 void net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections);
 
