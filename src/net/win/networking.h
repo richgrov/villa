@@ -33,7 +33,6 @@ public:
    explicit Connection(SOCKET socket);
    Connection(Connection &&other) = delete;
    Connection(Connection &other) = delete;
-   ~Connection();
 
 private:
    SOCKET socket_;
@@ -74,7 +73,9 @@ private:
    void handle_read_login(int connection_key, Connection &conn);
    /// `conn.overlapped_.op` MUST be set to a writing value before calling this
    static void write(Connection &conn, const unsigned char *buf, unsigned int len);
-   void handle_write(bool op_success, int connection_key, DWORD len) const;
+   void handle_write(bool op_success, int connection_key, DWORD len);
+
+   void release_connection(int connection_key);
 
    using ConnectionSlab = Slab<Connection, 256>;
    std::unique_ptr<ConnectionSlab> connections_;

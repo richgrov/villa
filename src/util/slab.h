@@ -62,7 +62,6 @@ public:
 
    void release(const int key) {
       auto &storage = get_storage(key);
-      storage.call_value_destructor();
       storage.store_next(next_available_);
       next_available_ = key;
    }
@@ -90,11 +89,6 @@ private:
       T &value() {
          auto ptr = reinterpret_cast<T *>(&storage);
          return *ptr;
-      }
-
-      void call_value_destructor() {
-         auto ptr = reinterpret_cast<T *>(&storage);
-         ptr->T::~T();
       }
    };
 
