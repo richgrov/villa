@@ -29,11 +29,11 @@ typedef struct {
 } OverlappedWithOp;
 
 typedef struct {
-   SOCKET socket_;
-   OverlappedWithOp overlapped_;
-   unsigned char buf_[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
-   unsigned char buf_used_;
-   unsigned char target_buf_len_;
+   SOCKET socket;
+   OverlappedWithOp overlapped;
+   unsigned char buf[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
+   unsigned char buf_used;
+   unsigned char target_buf_len;
 } Connection;
 
 struct IncomingConnection {
