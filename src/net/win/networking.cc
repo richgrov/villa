@@ -100,8 +100,8 @@ static void release_connection(Networking *net, int connection_key) {
 static void net_accept(Networking *net) {
    net->accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
    BOOL success = net->accept_ex_(
-      net->listen_socket_, net->accepted_socket_, net->accept_buf_, 0, Networking::kAddressLen,
-      Networking::kAddressLen, nullptr, &net->overlapped_
+      net->listen_socket_, net->accepted_socket_, net->accept_buf_, 0, SIMULO_NET_ADDRESS_LEN,
+      SIMULO_NET_ADDRESS_LEN, nullptr, &net->overlapped_
    );
 
    if (!success) {

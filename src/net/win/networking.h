@@ -42,12 +42,12 @@ typedef struct {
    char username[16];
 } IncomingConnection;
 
+// AcceptEx requires length of address to be at least 16 bytes more than its
+// true size
+#define SIMULO_NET_ADDRESS_LEN (sizeof(sockaddr_in) + 16)
+
 class Networking {
 public:
-   // AcceptEx requires length of address to be at least 16 bytes more than its
-   // true size
-   static constexpr DWORD kAddressLen = sizeof(sockaddr_in) + 16;
-
    using ConnectionSlab = Slab<Connection, 256>;
    ConnectionSlab connections_;
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
@@ -56,7 +56,7 @@ public:
    HANDLE root_completion_port_;
    SOCKET listen_socket_;
    SOCKET accepted_socket_;
-   unsigned char accept_buf_[kAddressLen * 2]; // *2 to hold the local and remote address
+   unsigned char accept_buf_[SIMULO_NET_ADDRESS_LEN * 2]; // *2 to hold the local and remote address
    WSAOVERLAPPED overlapped_;
 
    IncomingConnection *accepted_connections_;
