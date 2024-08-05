@@ -15,8 +15,6 @@
 #include "protocol/types.h"
 #include "util/slab.h"
 
-namespace simulo::net {
-
 enum Operation {
    OpReadHandshake,
    OpReadLogin,
@@ -47,7 +45,7 @@ typedef struct {
 #define SIMULO_NET_ADDRESS_LEN (sizeof(sockaddr_in) + 16)
 
 typedef struct {
-   Slab<Connection, 256> connections_;
+   simulo::Slab<Connection, 256> connections_;
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
    // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
    LPFN_ACCEPTEX accept_ex_;
@@ -68,7 +66,5 @@ void net_deinit(Networking *net);
 void net_listen(Networking *net);
 
 int net_poll(Networking *net);
-
-} // namespace simulo::net
 
 #endif // !SIMULO_NET_WIN_NETWORKING_H_

@@ -14,7 +14,6 @@
 #include "util/slab.h"
 
 using namespace simulo;
-using namespace simulo::net;
 
 namespace {
 
@@ -50,9 +49,7 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-void net::net_init(
-   Networking *net, const std::uint16_t port, IncomingConnection *accepted_connections
-) {
+void net_init(Networking *net, const std::uint16_t port, IncomingConnection *accepted_connections) {
    memset(net, 0, sizeof(Networking));
    net->accepted_socket_ = INVALID_SOCKET;
    net->accepted_connections_ = accepted_connections;
@@ -85,7 +82,7 @@ void net::net_init(
    }
 }
 
-void net::net_deinit(Networking *net) {
+void net_deinit(Networking *net) {
    closesocket(net->listen_socket_);
 }
 
@@ -110,7 +107,7 @@ static void net_accept(Networking *net) {
    }
 }
 
-void net::net_listen(Networking *net) {
+void net_listen(Networking *net) {
    if (listen(net->listen_socket_, 16) == SOCKET_ERROR) {
       throw create_func_error("listen", WSAGetLastError());
    }
@@ -339,7 +336,7 @@ handle_write(Networking *net, const bool op_success, const int connection_key, c
    net_read(net, conn);
 }
 
-int net::net_poll(Networking *net) {
+int net_poll(Networking *net) {
    net->num_accepted_ = 0;
 
    DWORD len;
