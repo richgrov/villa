@@ -122,18 +122,18 @@ void Networking::poll() {
          auto *with_op = reinterpret_cast<OverlappedWithOp *>(overlapped);
          int conn_key = static_cast<int>(completion_key);
 
-         switch (with_op->op) {
-         case Operation::kReadHandshake:
-         case Operation::kReadLogin:
+         switch (with_op->operation) {
+         case OpReadHandshake:
+         case OpReadLogin:
             handle_read(op_success, conn_key, len);
             break;
 
-         case Operation::kWriteHandshake:
+         case OpWriteHandshake:
             handle_write(op_success, conn_key, len);
             break;
 
          default:
-            SIMULO_PANIC("op = %d", static_cast<int>(with_op->op));
+            SIMULO_PANIC("op = %d", static_cast<int>(with_op->operation));
          }
       }
    }
@@ -228,17 +228,17 @@ void Networking::handle_read(const bool op_success, const int connection_key, co
       return;
    }
 
-   switch (conn.overlapped_.op) {
-   case Operation::kReadHandshake:
+   switch (conn.overlapped_.operation) {
+   case OpReadHandshake:
       handle_read_handshake(connection_key, conn);
       break;
 
-   case Operation::kReadLogin:
+   case OpReadLogin:
       handle_read_login(connection_key, conn);
       break;
 
    default:
-      SIMULO_PANIC("invalid op %d", static_cast<int>(conn.overlapped_.op));
+      SIMULO_PANIC("invalid op %d", static_cast<int>(conn.overlapped_.operation));
    }
 }
 
@@ -258,7 +258,7 @@ void Networking::handle_read_handshake(int connection_key, Connection &conn) {
       );
       conn.target_buf_len_ = LOGIN_PACKET_SIZE(handshake.username_len);
 
-      conn.overlapped_.op = Operation::kWriteHandshake;
+      conn.overlapped_.operation = OpWriteHandshake;
       write(conn, OFFLINE_MODE_RESPONSE, sizeof(OFFLINE_MODE_RESPONSE));
       break;
 
@@ -315,8 +315,8 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {
    SIMULO_DEBUG_ASSERT(
-       conn.overlapped_.op == Operation::kWriteHandshake, "expected writing op but got %d",
-       static_cast<int>(conn.overlapped_.op)
+       conn.overlapped_.operation == OpWriteHandshake, "expected writing op but got %d",
+       static_cast<int>(conn.overlapped_.operation)
    );
 
    WSABUF buf;
@@ -351,7 +351,7 @@ void Networking::handle_write(const bool op_success, const int connection_key, c
       return;
    }
 
-   conn.overlapped_.op = Operation::kReadLogin;
+   conn.overlapped_.operation = OpReadLogin;
    conn.buf_used_ = 0;
    read(conn);
 }

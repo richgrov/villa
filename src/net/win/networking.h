@@ -17,14 +17,14 @@
 
 namespace simulo::net {
 
-enum class Operation : unsigned char {
-   kReadHandshake,
-   kReadLogin,
-   kWriteHandshake,
+enum Operation {
+   OpReadHandshake,
+   OpReadLogin,
+   OpWriteHandshake,
 };
 
 struct OverlappedWithOp : OVERLAPPED {
-   Operation op;
+   unsigned char operation;
 };
 
 typedef struct {
