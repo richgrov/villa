@@ -311,7 +311,11 @@ void Networking::handle_read_login(int connection_key, Connection &conn) {
       username[login_packet.username_len] = '\0';
    }
 
-   accepted_connections_.emplace_back(conn, username);
+   IncomingConnection inc = {
+      .conn = conn,
+   };
+   memcpy(&inc.username, username.data(), username.size());
+   accepted_connections_.emplace_back(std::move(inc));
 }
 
 void Networking::write(Connection &conn, const unsigned char *data, const unsigned int len) {

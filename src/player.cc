@@ -1,8 +1,10 @@
 #include "player.h"
 
+#include <cstring>
 #include <iostream>
 
 #include "net/networking.h"
+#include "protocol/packets.h"
 #include "protocol/types.h"
 
 using namespace simulo;
@@ -20,7 +22,7 @@ int username_len(const std::array<char, 16> &username) {
 
 } // namespace
 
-Player::Player(net::Connection &conn, std::array<char, 16> username)
-    : conn_(conn), username_(username) {
-   std::cout << std::string(username_.data(), username_len(username)) << "\n";
+Player::Player(net::Connection &conn, const char *username) : conn_(conn) {
+   memcpy(username_.data(), username, MAX_USERNAME_LEN);
+   std::cout << std::string(username_.data(), username_len(username_)) << "\n";
 }

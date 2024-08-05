@@ -39,9 +39,7 @@ typedef struct {
 struct IncomingConnection {
    Connection &conn;
    // Will be null-terminated if username length is <16. Otherwise, full buffer is used.
-   std::array<char, 16> username;
-
-   IncomingConnection(Connection &c, std::array<char, 16> u) : conn(c), username(u) {}
+   char username[16];
 };
 
 class Networking {

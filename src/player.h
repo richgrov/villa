@@ -7,7 +7,8 @@ namespace simulo {
 
 class Player {
 public:
-   Player(net::Connection &conn, std::array<char, 16> username);
+   // Username is expected to be at least 16 chars
+   Player(net::Connection &conn, const char *username);
 
 private:
    net::Connection &conn_;
