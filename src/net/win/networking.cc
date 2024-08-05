@@ -54,8 +54,7 @@ Connection::Connection(const SOCKET socket)
 Networking::Networking(
     const std::uint16_t port, std::vector<IncomingConnection> &accepted_connections
 )
-    : connections_(std::make_unique<ConnectionSlab>()), accepted_socket_(INVALID_SOCKET),
-      overlapped_{}, accepted_connections_(accepted_connections) {
+    : accepted_socket_(INVALID_SOCKET), overlapped_{}, accepted_connections_(accepted_connections) {
 
    WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -165,7 +164,7 @@ void Networking::handle_accept(const bool success) {
 
    int key;
    {
-      key = connections_->emplace(accepted_socket_);
+      key = connections_.emplace(accepted_socket_);
       if (key == kInvalidSlabKey) {
          SIMULO_DEBUG_LOG("Out of connection objects for %llu", accepted_socket_);
          close_or_log_error(accepted_socket_);
@@ -175,7 +174,7 @@ void Networking::handle_accept(const bool success) {
       accepted_socket_ = INVALID_SOCKET;
    }
 
-   Connection &conn = connections_->get(key);
+   Connection &conn = connections_.get(key);
 
    HANDLE client_completion_port = CreateIoCompletionPort(
        reinterpret_cast<HANDLE>(conn.socket_), root_completion_port_, static_cast<ULONG_PTR>(key), 0
@@ -209,7 +208,7 @@ void Networking::read(Connection &conn) {
 }
 
 void Networking::handle_read(const bool op_success, const int connection_key, const DWORD len) {
-   Connection &conn = connections_->get(connection_key);
+   Connection &conn = connections_.get(connection_key);
 
    if (!op_success) {
       SIMULO_DEBUG_LOG("Read failed for %lld: %lu", conn.socket_, GetLastError());
@@ -339,7 +338,7 @@ void Networking::write(Connection &conn, const unsigned char *data, const unsign
 }
 
 void Networking::handle_write(const bool op_success, const int connection_key, const DWORD len) {
-   Connection &conn = connections_->get(connection_key);
+   Connection &conn = connections_.get(connection_key);
 
    if (!op_success) {
       SIMULO_DEBUG_LOG("Write failed for %llu: %lu", conn.socket_, GetLastError());
@@ -362,9 +361,9 @@ void Networking::handle_write(const bool op_success, const int connection_key, c
 }
 
 void Networking::release_connection(int connection_key) {
-   Connection &conn = connections_->get(connection_key);
+   Connection &conn = connections_.get(connection_key);
    if (conn.socket_ != INVALID_SOCKET) {
       close_or_log_error(conn.socket_);
    }
-   connections_->release(connection_key);
+   connections_.release(connection_key);
 }

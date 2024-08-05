@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cstdint>
-#include <memory>
 #include <vector>
 
 #include <WinSock2.h>
@@ -78,7 +77,7 @@ private:
    void release_connection(int connection_key);
 
    using ConnectionSlab = Slab<Connection, 256>;
-   std::unique_ptr<ConnectionSlab> connections_;
+   ConnectionSlab connections_;
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
    // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
    LPFN_ACCEPTEX accept_ex_;
