@@ -27,21 +27,13 @@ struct OverlappedWithOp : OVERLAPPED {
    Operation op;
 };
 
-class Connection {
-public:
-   explicit Connection(SOCKET socket);
-   Connection(Connection &&other) = delete;
-   Connection(Connection &other) = delete;
-
-private:
+typedef struct {
    SOCKET socket_;
    OverlappedWithOp overlapped_;
    unsigned char buf_[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
    unsigned char buf_used_;
    unsigned char target_buf_len_;
-
-   friend class Networking;
-};
+} Connection;
 
 struct IncomingConnection {
    Connection &conn;

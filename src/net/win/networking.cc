@@ -48,9 +48,6 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-Connection::Connection(const SOCKET socket)
-    : socket_(socket), overlapped_{}, buf_used_(0), target_buf_len_(1) {}
-
 Networking::Networking(
     const std::uint16_t port, std::vector<IncomingConnection> &accepted_connections
 )
@@ -162,19 +159,18 @@ void Networking::handle_accept(const bool success) {
       return;
    }
 
-   int key;
-   {
-      key = connections_.emplace(accepted_socket_);
-      if (key == kInvalidSlabKey) {
-         SIMULO_DEBUG_LOG("Out of connection objects for %llu", accepted_socket_);
-         close_or_log_error(accepted_socket_);
-         return;
-      }
-
-      accepted_socket_ = INVALID_SOCKET;
+   int key = connections_.emplace();
+   if (key == kInvalidSlabKey) {
+      SIMULO_DEBUG_LOG("Out of connection objects for %llu", accepted_socket_);
+      close_or_log_error(accepted_socket_);
+      return;
    }
 
    Connection &conn = connections_.get(key);
+   memset(&conn, 0, sizeof(Connection));
+   conn.socket_ = accepted_socket_;
+   conn.target_buf_len_ = 1;
+   accepted_socket_ = INVALID_SOCKET;
 
    HANDLE client_completion_port = CreateIoCompletionPort(
        reinterpret_cast<HANDLE>(conn.socket_), root_completion_port_, static_cast<ULONG_PTR>(key), 0
