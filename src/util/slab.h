@@ -94,7 +94,7 @@ private:
 
    Storage &get_storage(const int index) {
       SIMULO_DEBUG_ASSERT(
-          index >= 0 && index < Length, "index {} out of slab range {}", index, Length
+         index >= 0 && index < Length, "index {} out of slab range {}", index, Length
       );
       return objects_[index];
    }
