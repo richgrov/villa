@@ -195,7 +195,8 @@ void Networking::read(Connection &conn) {
    buf.len = sizeof(conn.buf_) - conn.buf_used_;
 
    DWORD flags = 0;
-   int result = WSARecv(conn.socket_, &buf, 1, nullptr, &flags, &conn.overlapped_, nullptr);
+   int result =
+       WSARecv(conn.socket_, &buf, 1, nullptr, &flags, &conn.overlapped_.overlapped, nullptr);
 
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
@@ -326,7 +327,7 @@ void Networking::write(Connection &conn, const unsigned char *data, const unsign
 
    conn.buf_used_ = len;
 
-   int result = WSASend(conn.socket_, &buf, 1, nullptr, 0, &conn.overlapped_, nullptr);
+   int result = WSASend(conn.socket_, &buf, 1, nullptr, 0, &conn.overlapped_.overlapped, nullptr);
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
       SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = %d", err);

@@ -23,9 +23,10 @@ enum Operation {
    OpWriteHandshake,
 };
 
-struct OverlappedWithOp : OVERLAPPED {
+typedef struct {
+   OVERLAPPED overlapped;
    unsigned char operation;
-};
+} OverlappedWithOp;
 
 typedef struct {
    SOCKET socket_;
