@@ -3,8 +3,6 @@
 
 #include "net/networking.h"
 
-namespace simulo {
-
 typedef struct {
    Connection *conn;
    char username[16];
@@ -12,7 +10,5 @@ typedef struct {
 
 // Username is expected to be at least 16 chars
 void player_init(Player *player, Connection *conn, const char *username);
-
-} // namespace simulo
 
 #endif // !SIMULO_PLAYER_H_

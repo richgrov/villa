@@ -22,7 +22,7 @@ int username_len(const char *username) {
 
 } // namespace
 
-void simulo::player_init(Player *player, Connection *conn, const char *username) {
+void player_init(Player *player, Connection *conn, const char *username) {
    player->conn = conn;
    memcpy(player->username, username, MAX_USERNAME_LEN);
    std::cout << std::string(player->username, username_len(player->username)) << "\n";
