@@ -30,7 +30,7 @@ void Server::tick() {
 
    for (int i = 0; i < num_accepted; ++i) {
       IncomingConnection &incoming = accepted_connections_[i];
-      int key = players_.emplace();
+      int key = players_.alloc_zeroed();
       Player &player = players_.get(key);
       player_init(&player, incoming.conn, incoming.username);
    }

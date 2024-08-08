@@ -171,7 +171,7 @@ static void handle_accept(Networking *net, const bool success) {
       return;
    }
 
-   int key = net->connections_.emplace();
+   int key = net->connections_.alloc_zeroed();
    if (key == simulo::kInvalidSlabKey) {
       SIMULO_DEBUG_LOG("Out of connection objects for %llu", net->accepted_socket_);
       close_or_log_error(net->accepted_socket_);
@@ -179,7 +179,6 @@ static void handle_accept(Networking *net, const bool success) {
    }
 
    Connection &conn = net->connections_.get(key);
-   memset(&conn, 0, sizeof(Connection));
    conn.socket = net->accepted_socket_;
    conn.target_buf_len = 1;
    net->accepted_socket_ = INVALID_SOCKET;

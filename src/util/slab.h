@@ -48,7 +48,7 @@ public:
    /**
     * Returns `kInvalidSlabKey` if allocation fails
     */
-   template <class... Args> int emplace(Args &&...args) {
+   int alloc_zeroed() {
       if (next_available_ == kInvalidSlabKey) {
          return kInvalidSlabKey;
       }
@@ -56,7 +56,7 @@ public:
       int key = next_available_;
       auto &storage = get_storage(key);
       next_available_ = storage.next();
-      storage.store_value(std::forward<Args>(args)...);
+      storage.store_zero();
       return key;
    }
 
@@ -82,8 +82,8 @@ private:
          *ptr = next;
       }
 
-      template <class... Args> void store_value(Args &&...args) {
-         new (&storage) T(std::forward<Args>(args)...);
+      void store_zero() {
+         memset(storage, 0, sizeof(T));
       }
 
       T &value() {
