@@ -5,15 +5,13 @@
 
 namespace simulo {
 
-class Player {
-public:
-   // Username is expected to be at least 16 chars
-   Player(Connection *conn, const char *username);
+typedef struct {
+   Connection *conn;
+   char username[16];
+} Player;
 
-private:
-   Connection *conn_;
-   char username_[16];
-};
+// Username is expected to be at least 16 chars
+void player_init(Player *player, Connection *conn, const char *username);
 
 } // namespace simulo
 

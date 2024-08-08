@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "net/win/networking.h"
+#include "player.h"
 
 using namespace simulo;
 
@@ -29,6 +30,8 @@ void Server::tick() {
 
    for (int i = 0; i < num_accepted; ++i) {
       IncomingConnection &incoming = accepted_connections_[i];
-      players_.emplace(incoming.conn, incoming.username);
+      int key = players_.emplace();
+      Player &player = players_.get(key);
+      player_init(&player, incoming.conn, incoming.username);
    }
 }
