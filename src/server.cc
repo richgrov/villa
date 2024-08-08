@@ -11,7 +11,7 @@ using namespace simulo;
 
 namespace {}; // namespace
 
-Server::Server() : accepted_connections_(), players_(std::make_unique<PlayerSlab>()) {
+Server::Server() : accepted_connections_() {
    net_init(&networking_, 25565, accepted_connections_);
 }
 
@@ -29,6 +29,6 @@ void Server::tick() {
 
    for (int i = 0; i < num_accepted; ++i) {
       IncomingConnection &incoming = accepted_connections_[i];
-      players_->emplace(*incoming.conn, incoming.username);
+      players_.emplace(*incoming.conn, incoming.username);
    }
 }

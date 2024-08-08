@@ -15,6 +15,7 @@ namespace simulo {
 class Server {
 public:
    explicit Server();
+
    inline ~Server() {
       net_deinit(&networking_);
    }
@@ -25,8 +26,7 @@ private:
    void tick();
 
    IncomingConnection accepted_connections_[SIMULO_JOIN_QUEUE_CAPACITY];
-   using PlayerSlab = Slab<Player, 256>;
-   std::unique_ptr<PlayerSlab> players_;
+   Slab<Player, 256> players_;
    Networking networking_;
 };
 
