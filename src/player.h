@@ -12,7 +12,7 @@ public:
 
 private:
    Connection &conn_;
-   std::array<char, 16> username_;
+   char username_[16];
 };
 
 } // namespace simulo
