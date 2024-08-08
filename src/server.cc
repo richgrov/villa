@@ -29,6 +29,6 @@ void Server::tick() {
 
    for (int i = 0; i < num_accepted; ++i) {
       IncomingConnection &incoming = accepted_connections_[i];
-      players_.emplace(*incoming.conn, incoming.username);
+      players_.emplace(incoming.conn, incoming.username);
    }
 }

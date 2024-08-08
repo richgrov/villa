@@ -22,7 +22,7 @@ int username_len(const char *username) {
 
 } // namespace
 
-Player::Player(Connection &conn, const char *username) : conn_(conn) {
+Player::Player(Connection *conn, const char *username) : conn_(conn) {
    memcpy(username_, username, MAX_USERNAME_LEN);
    std::cout << std::string(username_, username_len(username_)) << "\n";
 }
