@@ -43,7 +43,7 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 
 } // namespace
 
-bool net_init(Networking *net, const std::uint16_t port, IncomingConnection *accepted_connections) {
+bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
    memset(net, 0, sizeof(Networking));
    net->accepted_socket_ = INVALID_SOCKET;
    net->accepted_connections_ = accepted_connections;

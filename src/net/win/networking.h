@@ -1,9 +1,7 @@
 #ifndef SIMULO_NET_WIN_NETWORKING_H_
 #define SIMULO_NET_WIN_NETWORKING_H_
 
-#include <array>
-#include <cstdint>
-#include <vector>
+#include <stdint.h>
 
 #include <WinSock2.h>
 #include <minwinbase.h>
