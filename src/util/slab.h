@@ -7,7 +7,7 @@
 #include <string.h>
 #include <utility>
 
-static constexpr int kInvalidSlabKey = -1;
+#define SIMULO_INVALID_SLAB_KEY -1
 
 template <class T, int Length> class Slab {
 public:
@@ -16,7 +16,7 @@ public:
 
       for (int i = 0; i < Length; ++i) {
          if (i == Length - 1) {
-            get_storage(i).next = kInvalidSlabKey;
+            get_storage(i).next = SIMULO_INVALID_SLAB_KEY;
          } else {
             get_storage(i).next = i + 1;
          }
@@ -28,7 +28,7 @@ public:
       memset(in_use, true, sizeof(in_use));
 
       int next_available = next_available_;
-      while (next_available != kInvalidSlabKey) {
+      while (next_available != SIMULO_INVALID_SLAB_KEY) {
          in_use[next_available] = false;
          next_available = get_storage(next_available).next;
       }
@@ -48,8 +48,8 @@ public:
     * Returns `kInvalidSlabKey` if allocation fails
     */
    int alloc_zeroed() {
-      if (next_available_ == kInvalidSlabKey) {
-         return kInvalidSlabKey;
+      if (next_available_ == SIMULO_INVALID_SLAB_KEY) {
+         return SIMULO_INVALID_SLAB_KEY;
       }
 
       int key = next_available_;
