@@ -4,6 +4,7 @@
 #include "debug_assert.h"
 
 #include <algorithm>
+#include <string.h>
 #include <utility>
 
 namespace simulo {
@@ -26,7 +27,7 @@ public:
 
    ~Slab() {
       bool in_use[Length];
-      std::fill_n(in_use, Length, true);
+      memset(in_use, true, sizeof(in_use));
 
       int next_available = next_available_;
       while (next_available != kInvalidSlabKey) {
