@@ -18,9 +18,9 @@ public:
 
       for (int i = 0; i < Length; ++i) {
          if (i == Length - 1) {
-            get_storage(i).store_next(kInvalidSlabKey);
+            get_storage(i).next = kInvalidSlabKey;
          } else {
-            get_storage(i).store_next(i + 1);
+            get_storage(i).next = i + 1;
          }
       }
    }
@@ -32,7 +32,7 @@ public:
       int next_available = next_available_;
       while (next_available != kInvalidSlabKey) {
          in_use[next_available] = false;
-         next_available = get_storage(next_available).next();
+         next_available = get_storage(next_available).next;
       }
 
       for (int i = 0; i < Length; ++i) {
@@ -43,7 +43,7 @@ public:
    }
 
    [[nodiscard]] T &get(const int index) {
-      return get_storage(index).value();
+      return get_storage(index).value;
    }
 
    /**
@@ -56,41 +56,20 @@ public:
 
       int key = next_available_;
       auto &storage = get_storage(key);
-      next_available_ = storage.next();
-      storage.store_zero();
+      next_available_ = storage.next;
+      memset(&storage.value, 0, sizeof(storage.value));
       return key;
    }
 
    void release(const int key) {
-      auto &storage = get_storage(key);
-      storage.store_next(next_available_);
+      get_storage(key).next = next_available_;
       next_available_ = key;
    }
 
 private:
-   struct Storage {
-      static constexpr std::size_t kSize = std::max<std::size_t>({sizeof(int), sizeof(T)});
-      static constexpr std::size_t kAlign = std::max<std::size_t>({alignof(int), alignof(T)});
-      alignas(kAlign) unsigned char storage[kSize];
-
-      int next() {
-         auto ptr = reinterpret_cast<int *>(&storage);
-         return *ptr;
-      }
-
-      void store_next(const int next) {
-         auto ptr = reinterpret_cast<int *>(&storage);
-         *ptr = next;
-      }
-
-      void store_zero() {
-         memset(storage, 0, sizeof(T));
-      }
-
-      T &value() {
-         auto ptr = reinterpret_cast<T *>(&storage);
-         return *ptr;
-      }
+   union Storage {
+      T value;
+      int next;
    };
 
    Storage &get_storage(const int index) {
