@@ -7,8 +7,6 @@
 #include <string.h>
 #include <utility>
 
-namespace simulo {
-
 static constexpr int kInvalidSlabKey = -1;
 
 template <class T, int Length> class Slab {
@@ -82,7 +80,5 @@ private:
    Storage objects_[Length];
    int next_available_;
 };
-
-} // namespace simulo
 
 #endif // !SIMULO_UTIL_SLAB_H_

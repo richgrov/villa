@@ -7,8 +7,6 @@
 #include "protocol/packets.h"
 #include "protocol/types.h"
 
-using namespace simulo;
-
 namespace {
 
 int username_len(const char *username) {

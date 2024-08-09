@@ -43,7 +43,7 @@ typedef struct {
 #define SIMULO_NET_ADDRESS_LEN (sizeof(sockaddr_in) + 16)
 
 typedef struct {
-   simulo::Slab<Connection, 256> connections_;
+   Slab<Connection, 256> connections_;
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
    // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
    LPFN_ACCEPTEX accept_ex_;

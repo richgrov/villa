@@ -13,8 +13,6 @@
 #include "util/debug_assert.h"
 #include "util/slab.h"
 
-using namespace simulo;
-
 namespace {
 
 void close_or_log_error(SOCKET socket) {
@@ -172,7 +170,7 @@ static void handle_accept(Networking *net, const bool success) {
    }
 
    int key = net->connections_.alloc_zeroed();
-   if (key == simulo::kInvalidSlabKey) {
+   if (key == kInvalidSlabKey) {
       SIMULO_DEBUG_LOG("Out of connection objects for %llu", net->accepted_socket_);
       close_or_log_error(net->accepted_socket_);
       return;
