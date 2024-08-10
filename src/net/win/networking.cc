@@ -11,9 +11,7 @@
 #include "util/debug_assert.h"
 #include "util/slab.h"
 
-namespace {
-
-void close_or_log_error(SOCKET socket) {
+static void close_or_log_error(SOCKET socket) {
    if (closesocket(socket) != SOCKET_ERROR) {
       return;
    }
@@ -22,7 +20,7 @@ void close_or_log_error(SOCKET socket) {
    SIMULO_PANIC("Failed to close %llu: %d", socket, err);
 }
 
-void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
+static void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
    GUID accept_ex_guid = WSAID_ACCEPTEX;
    DWORD unused;
    int load_result = WSAIoctl(
@@ -36,8 +34,6 @@ void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
 }
 
 constexpr ULONG_PTR kListenerCompletionKey = -1;
-
-} // namespace
 
 bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
    slab_init(net->connections_, ARRAY_LEN(net->connections_), sizeof(Connection));
