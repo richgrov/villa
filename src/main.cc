@@ -1,11 +1,9 @@
-#include <chrono>
-#include <thread>
-
 #include "config.h"
 #include "net/networking.h" // IWYU pragma: export
 #include "net/win/networking.h"
 #include "player.h"
 #include "util/arrays.h"
+#include "util/crossplatform_time.h"
 
 #define OUT_OF_PLAYERS -1
 
@@ -47,7 +45,7 @@ int main() {
 
    while (true) {
       tick();
-      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      crossplatform_sleep_ms(20);
    }
 
    net_deinit(&networking);

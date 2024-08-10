@@ -16,6 +16,8 @@ set(SOURCE_FILES
    "player.cc"
    "player.h"
 
+   "util/crossplatform_time.h"
+
    ${OS_SPECIFIC_FILES}
 )
 
