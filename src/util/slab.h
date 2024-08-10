@@ -14,9 +14,9 @@ public:
 
       for (int i = 0; i < Length; ++i) {
          if (i == Length - 1) {
-            get_storage(i).next = SIMULO_INVALID_SLAB_KEY;
+            objects_[i].next = SIMULO_INVALID_SLAB_KEY;
          } else {
-            get_storage(i).next = i + 1;
+            objects_[i].next = i + 1;
          }
       }
    }
@@ -28,7 +28,7 @@ public:
       int next_available = next_available_;
       while (next_available != SIMULO_INVALID_SLAB_KEY) {
          in_use[next_available] = false;
-         next_available = get_storage(next_available).next;
+         next_available = objects_[next_available].next;
       }
 
       for (int i = 0; i < Length; ++i) {
@@ -39,7 +39,8 @@ public:
    }
 
    [[nodiscard]] T &get(const int index) {
-      return get_storage(index).value;
+      SIMULO_DEBUG_ASSERT(index >= 0 && index < Length, "get {}, range {}", index, Length);
+      return objects_[index].value;
    }
 
    /**
@@ -51,31 +52,23 @@ public:
       }
 
       int key = next_available_;
-      auto &storage = get_storage(key);
+      auto &storage = objects_[key];
       next_available_ = storage.next;
       memset(&storage.value, 0, sizeof(storage.value));
       return key;
    }
 
    void release(const int key) {
-      get_storage(key).next = next_available_;
+      SIMULO_DEBUG_ASSERT(key >= 0 && key < Length, "release {}, range {}", key, Length);
+      objects_[key].next = next_available_;
       next_available_ = key;
    }
 
 private:
-   union Storage {
+   union {
       T value;
       int next;
-   };
-
-   Storage &get_storage(const int index) {
-      SIMULO_DEBUG_ASSERT(
-         index >= 0 && index < Length, "index {} out of slab range {}", index, Length
-      );
-      return objects_[index];
-   }
-
-   Storage objects_[Length];
+   } objects_[Length];
    int next_available_;
 };
 
