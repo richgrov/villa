@@ -22,12 +22,15 @@ typedef struct {
    unsigned char operation;
 } OverlappedWithOp;
 
-typedef struct {
-   SOCKET socket;
-   OverlappedWithOp overlapped;
-   unsigned char buf[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
-   unsigned char buf_used;
-   unsigned char target_buf_len;
+typedef union {
+   struct {
+      SOCKET socket;
+      OverlappedWithOp overlapped;
+      unsigned char buf[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
+      unsigned char buf_used;
+      unsigned char target_buf_len;
+   };
+   int next;
 } Connection;
 
 typedef struct {

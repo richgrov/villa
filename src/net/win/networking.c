@@ -9,7 +9,6 @@
 #include "protocol/packets.h"
 #include "util/arrays.h"
 #include "util/debug_assert.h"
-#include "util/slab.h"
 
 static void close_or_log_error(SOCKET socket) {
    if (closesocket(socket) != SOCKET_ERROR) {
@@ -34,9 +33,21 @@ static void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
 }
 
 #define LISTENER_COMPLETION_KEY -1
+#define OUT_OF_CONNECTIONS -1
+
+static void init_conn_slab(Networking *net) {
+   for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
+      if (i == ARRAY_LEN(net->connections) - 1) {
+         net->connections[i].next = OUT_OF_CONNECTIONS;
+      } else {
+         net->connections[i].next = i + 1;
+      }
+   }
+   net->next_avail_connection = 0;
+}
 
 bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
-   slab_init(net->connections, ARRAY_LEN(net->connections), sizeof(Connection));
+   init_conn_slab(net);
 
    memset(net, 0, sizeof(Networking));
    net->accepted_socket = INVALID_SOCKET;
@@ -86,7 +97,8 @@ static void release_connection(Networking *net, int connection_key) {
       close_or_log_error(conn->socket);
    }
 
-   slab_reclaim(net->connections, sizeof(Connection), connection_key, &net->next_avail_connection);
+   net->connections[connection_key].next = net->next_avail_connection;
+   net->next_avail_connection = connection_key;
 }
 
 void net_deinit(Networking *net) {
@@ -94,9 +106,9 @@ void net_deinit(Networking *net) {
    memset(unallocated_connections, false, sizeof(unallocated_connections));
 
    int next = net->next_avail_connection;
-   while (next != SIMULO_INVALID_SLAB_KEY) {
+   while (next != OUT_OF_CONNECTIONS) {
       unallocated_connections[next] = true;
-      next = slab_get_next_id(&net->connections[next]);
+      next = net->connections[next].next;
    }
 
    for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
@@ -183,7 +195,7 @@ static void handle_accept(Networking *net, const bool success) {
       return;
    }
 
-   if (net->next_avail_connection == SIMULO_INVALID_SLAB_KEY) {
+   if (net->next_avail_connection == OUT_OF_CONNECTIONS) {
       SIMULO_DEBUG_LOG("Out of connection objects for %llu", net->accepted_socket);
       close_or_log_error(net->accepted_socket);
       return;
@@ -191,7 +203,7 @@ static void handle_accept(Networking *net, const bool success) {
 
    int key = net->next_avail_connection;
    Connection *conn = &net->connections[key];
-   net->next_avail_connection = slab_get_next_id(&conn);
+   net->next_avail_connection = conn->next;
 
    memset(conn, 0, sizeof(Connection));
    conn->socket = net->accepted_socket;
