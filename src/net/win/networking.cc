@@ -1,5 +1,7 @@
 #include "networking.h"
 
+#include <stddef.h>
+
 #include <MSWSock.h>
 #include <WinSock2.h>
 
@@ -23,7 +25,7 @@ static void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
    DWORD unused;
    int load_result = WSAIoctl(
       listener, SIO_GET_EXTENSION_FUNCTION_POINTER, &accept_ex_guid, sizeof(accept_ex_guid), fn,
-      sizeof(LPFN_ACCEPTEX), &unused, nullptr, nullptr
+      sizeof(LPFN_ACCEPTEX), &unused, NULL, NULL
    );
 
    if (load_result == SOCKET_ERROR) {
@@ -47,8 +49,8 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
       return false;
    }
 
-   net->root_completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-   if (net->root_completion_port_ == nullptr) {
+   net->root_completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+   if (net->root_completion_port_ == NULL) {
       fprintf(stderr, "error: CreateIOCompletionPort returned %lu", GetLastError());
       return false;
    }
@@ -112,7 +114,7 @@ static void net_accept(Networking *net) {
    net->accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
    BOOL success = net->accept_ex_(
       net->listen_socket_, net->accepted_socket_, net->accept_buf_, 0, SIMULO_NET_ADDRESS_LEN,
-      SIMULO_NET_ADDRESS_LEN, nullptr, &net->overlapped_
+      SIMULO_NET_ADDRESS_LEN, NULL, &net->overlapped_
    );
 
    if (!success) {
@@ -131,7 +133,7 @@ bool net_listen(Networking *net) {
       (HANDLE)net->listen_socket_, net->root_completion_port_, LISTENER_COMPLETION_KEY, 0
    );
 
-   if (listen_port == nullptr) {
+   if (listen_port == NULL) {
       fprintf(stderr, "error: CreateIOCompletionPort returned %lu", GetLastError());
       return false;
    }
@@ -146,8 +148,7 @@ static void net_read(Networking *net, Connection *conn) {
    buf.len = sizeof(conn->buf) - conn->buf_used;
 
    DWORD flags = 0;
-   int result =
-      WSARecv(conn->socket, &buf, 1, nullptr, &flags, &conn->overlapped.overlapped, nullptr);
+   int result = WSARecv(conn->socket, &buf, 1, NULL, &flags, &conn->overlapped.overlapped, NULL);
 
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
@@ -170,7 +171,7 @@ net_write(Networking *net, Connection *conn, const unsigned char *data, const un
 
    conn->buf_used = len;
 
-   int result = WSASend(conn->socket, &buf, 1, nullptr, 0, &conn->overlapped.overlapped, nullptr);
+   int result = WSASend(conn->socket, &buf, 1, NULL, 0, &conn->overlapped.overlapped, NULL);
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
       SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = %d", err);
@@ -202,7 +203,7 @@ static void handle_accept(Networking *net, const bool success) {
    HANDLE client_completion_port =
       CreateIoCompletionPort((HANDLE)conn->socket, net->root_completion_port_, (ULONG_PTR)key, 0);
 
-   if (client_completion_port == nullptr) {
+   if (client_completion_port == NULL) {
       SIMULO_DEBUG_LOG(
          "Failed to create completion port for %llu: %lu", conn->socket, GetLastError()
       );
@@ -364,7 +365,7 @@ int net_poll(Networking *net) {
          net->root_completion_port_, &len, &completion_key, &overlapped, 0
       );
 
-      bool no_more_completions = overlapped == nullptr;
+      bool no_more_completions = overlapped == NULL;
       if (no_more_completions) {
          break;
       }
