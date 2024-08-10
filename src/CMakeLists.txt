@@ -39,9 +39,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
    set_property(TARGET simulo PROPERTY CXX_STANDARD 20)
 endif()
 
-if (BUILD_TESTING)
+if (false) # testing disabled for now, as there are no tests after C rewrite
    add_executable(simulo_test
-      "test_main.cc"
       ${SOURCE_FILES}
    )
 
