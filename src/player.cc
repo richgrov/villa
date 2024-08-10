@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "net/networking.h"
+#include "net/networking.h" // IWYU pragma: export
 #include "protocol/packets.h"
 
 namespace {
