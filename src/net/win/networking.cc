@@ -1,7 +1,5 @@
 #include "networking.h"
 
-#include <array>
-
 #include <MSWSock.h>
 #include <WinSock2.h>
 
@@ -276,7 +274,7 @@ static void handle_read_login(Networking *net, int connection_key, Connection *c
       return;
    }
 
-   std::array<char, 16> username;
+   char username[16];
    for (int i = 0; i < login_packet.username_len; ++i) {
       username[i] = (char)login_packet.username[i];
    }
@@ -287,7 +285,7 @@ static void handle_read_login(Networking *net, int connection_key, Connection *c
 
    IncomingConnection *inc = &net->accepted_connections_[net->num_accepted_++];
    inc->conn = conn;
-   memcpy(inc->username, username.data(), username.size());
+   memcpy(inc->username, username, sizeof(username));
 }
 
 static void
