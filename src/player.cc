@@ -1,6 +1,6 @@
 #include "player.h"
 
-#include <iostream>
+#include <stdio.h>
 #include <string.h>
 
 #include "net/networking.h"
@@ -23,5 +23,5 @@ int username_len(const char *username) {
 void player_init(Player *player, Connection *conn, const char *username) {
    player->conn = conn;
    memcpy(player->username, username, MAX_USERNAME_LEN);
-   std::cout << std::string(player->username, username_len(player->username)) << "\n";
+   printf("%.*s\n", username_len(player->username), player->username);
 }
