@@ -47,9 +47,9 @@ static void init_conn_slab(Networking *net) {
 }
 
 bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
-   init_conn_slab(net);
-
    memset(net, 0, sizeof(Networking));
+
+   init_conn_slab(net);
    net->accepted_socket = INVALID_SOCKET;
    net->accepted_connections = accepted_connections;
 
