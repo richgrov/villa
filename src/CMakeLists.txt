@@ -13,7 +13,7 @@ set(SOURCE_FILES
    "protocol/types.c"
    "protocol/types.h"
 
-   "player.cc"
+   "player.c"
    "player.h"
 
    "util/crossplatform_time.h"

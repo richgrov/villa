@@ -11,7 +11,15 @@ typedef union {
    int next; // used for slab allocation
 } Player;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Username is expected to be at least 16 chars
 void player_init(Player *player, Connection *conn, const char *username);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !SIMULO_PLAYER_H_
