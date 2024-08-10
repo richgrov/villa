@@ -105,10 +105,8 @@ void net_deinit(Networking *net) {
    bool unallocated_connections[ARRAY_LEN(net->connections)];
    memset(unallocated_connections, false, sizeof(unallocated_connections));
 
-   int next = net->next_avail_connection;
-   while (next != OUT_OF_CONNECTIONS) {
-      unallocated_connections[next] = true;
-      next = net->connections[next].next;
+   for (int i = net->next_avail_connection; i != OUT_OF_CONNECTIONS; i = net->connections[i].next) {
+      unallocated_connections[i] = true;
    }
 
    for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
