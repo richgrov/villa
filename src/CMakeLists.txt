@@ -13,8 +13,6 @@ set(SOURCE_FILES
    "protocol/types.c"
    "protocol/types.h"
 
-   "util/slab.h"
-
    "player.cc"
    "player.h"
    "server.cc"
@@ -44,7 +42,6 @@ endif()
 if (BUILD_TESTING)
    add_executable(simulo_test
       "test_main.cc"
-      "util/slab_test.cc"
       ${SOURCE_FILES}
    )
 
