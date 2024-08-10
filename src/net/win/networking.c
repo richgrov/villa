@@ -42,7 +42,7 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
    net->accepted_socket_ = INVALID_SOCKET;
    net->accepted_connections_ = accepted_connections;
 
-   WSAData wsa_data;
+   struct WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
    if (startup_res != 0) {
       fprintf(stderr, "error: WSAStartup returned %d", startup_res);
@@ -67,7 +67,8 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
    bind_addr.sin_family = AF_INET;
    bind_addr.sin_addr.s_addr = INADDR_ANY;
    bind_addr.sin_port = htons(port);
-   if (bind(net->listen_socket_, (sockaddr *)&bind_addr, sizeof(bind_addr)) == SOCKET_ERROR) {
+   if (bind(net->listen_socket_, (struct sockaddr *)&bind_addr, sizeof(bind_addr)) ==
+       SOCKET_ERROR) {
       fprintf(stderr, "error: bind returned %d", WSAGetLastError());
       return false;
    }
@@ -217,7 +218,7 @@ static void handle_accept(Networking *net, const bool success) {
 }
 
 static void handle_read_handshake(Networking *net, int connection_key, Connection *conn) {
-   Handshake handshake{};
+   Handshake handshake = {};
    int min_remaining_bytes = remaining_handshake_bytes(conn->buf, conn->buf_used, &handshake);
    switch (min_remaining_bytes) {
    case -1:
@@ -253,7 +254,7 @@ static void handle_read_handshake(Networking *net, int connection_key, Connectio
 }
 
 static void handle_read_login(Networking *net, int connection_key, Connection *conn) {
-   Login login_packet{};
+   Login login_packet = {};
    bool ok = read_login_pkt(conn->buf, conn->buf_used, &login_packet);
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from %llu", conn->socket);
@@ -374,7 +375,7 @@ int net_poll(Networking *net) {
       if (accepted_new_connection) {
          handle_accept(net, op_success);
       } else {
-         auto *with_op = (OverlappedWithOp *)overlapped;
+         OverlappedWithOp *with_op = (OverlappedWithOp *)overlapped;
          int conn_key = (int)completion_key;
 
          switch (with_op->operation) {

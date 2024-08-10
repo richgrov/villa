@@ -1,7 +1,7 @@
 if (WIN32)
    set(OS_SPECIFIC_FILES
+      "net/win/networking.c"
       "net/win/networking.h"
-      "net/win/networking.cc"
    )
 endif()
 
