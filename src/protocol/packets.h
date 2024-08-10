@@ -18,11 +18,7 @@ typedef struct {
    uint8_t dimension;
 } Login;
 
-#ifdef __cplusplus
-extern "C" bool read_login_pkt(const unsigned char *buf, size_t len, Login *pkt);
-#else
 bool read_login_pkt(const unsigned char *buf, size_t len, Login *pkt);
-#endif
 
 #define LOGIN_PACKET_SIZE(username_len)                                                            \
    (1 +                            /* packet id */                                                 \
@@ -46,10 +42,6 @@ static const unsigned char OFFLINE_MODE_RESPONSE[] = {
    '-'           // first char low byte
 };
 
-#ifdef __cplusplus
-extern "C" int remaining_handshake_bytes(const unsigned char *buf, size_t len, Handshake *pkt);
-#else
 int remaining_handshake_bytes(const unsigned char *buf, size_t len, Handshake *pkt);
-#endif
 
 #endif // !SIMULO_PROTOCOL_PACKETS_H_

@@ -60,10 +60,6 @@ typedef struct {
    int num_accepted;
 } Networking;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections);
 
 void net_deinit(Networking *net);
@@ -71,9 +67,5 @@ void net_deinit(Networking *net);
 bool net_listen(Networking *net);
 
 int net_poll(Networking *net);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // !SIMULO_NET_WIN_NETWORKING_H_
