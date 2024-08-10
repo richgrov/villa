@@ -15,8 +15,6 @@ set(SOURCE_FILES
 
    "player.cc"
    "player.h"
-   "server.cc"
-   "server.h"
 
    ${OS_SPECIFIC_FILES}
 )
