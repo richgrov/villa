@@ -3,9 +3,12 @@
 
 #include "net/networking.h"
 
-typedef struct {
-   Connection *conn;
-   char username[16];
+typedef union {
+   struct {
+      Connection *conn;
+      char username[16];
+   };
+   int next; // used for slab allocation
 } Player;
 
 // Username is expected to be at least 16 chars

@@ -5,7 +5,6 @@
 #include "net/networking.h"
 #include "net/win/networking.h"
 #include "player.h"
-#include "util/slab.h"
 
 namespace simulo {
 

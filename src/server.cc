@@ -9,10 +9,19 @@
 
 using namespace simulo;
 
-namespace {}; // namespace
+#define OUT_OF_PLAYERS -1
 
 Server::Server() : accepted_connections_() {
-   slab_init(players_, ARRAY_LEN(players_), sizeof(Player));
+   for (int i = 0; i < ARRAY_LEN(players_); ++i) {
+      int next;
+      if (i == ARRAY_LEN(players_) - 1) {
+         next = OUT_OF_PLAYERS;
+      } else {
+         next = i + 1;
+      }
+      players_[i].next = next;
+   }
+
    net_init(&networking_, 25565, accepted_connections_);
 }
 
@@ -31,14 +40,12 @@ void Server::tick() {
    for (int i = 0; i < num_accepted; ++i) {
       IncomingConnection &incoming = accepted_connections_[i];
 
-      if (next_avail_player_ == SIMULO_INVALID_SLAB_KEY) {
+      if (next_avail_player_ == OUT_OF_PLAYERS) {
          break; // todo
       }
 
-      int key = next_avail_player_;
-      Player &player = players_[key];
-      next_avail_player_ = slab_get_next_id(&player);
-
+      Player &player = players_[next_avail_player_];
+      next_avail_player_ = player.next;
       player_init(&player, incoming.conn, incoming.username);
    }
 }
