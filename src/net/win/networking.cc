@@ -7,9 +7,9 @@
 
 #include "config.h"
 #include "protocol/packets.h"
-#include "server.h" // temporary
 #include "util/arrays.h"
 #include "util/debug_assert.h"
+#include "util/slab.h"
 
 namespace {
 
