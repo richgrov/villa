@@ -6,9 +6,7 @@
 #include "net/networking.h" // IWYU pragma: export
 #include "protocol/packets.h"
 
-namespace {
-
-int username_len(const char *username) {
+static int username_len(const char *username) {
    for (int i = 0; i < 16; ++i) {
       if (username[i] == '\0') {
          return i;
@@ -16,8 +14,6 @@ int username_len(const char *username) {
    }
    return 16;
 }
-
-} // namespace
 
 void player_init(Player *player, Connection *conn, const char *username) {
    player->conn = conn;
