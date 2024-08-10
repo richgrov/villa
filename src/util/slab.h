@@ -3,9 +3,7 @@
 
 #include "debug_assert.h"
 
-#include <algorithm>
 #include <string.h>
-#include <utility>
 
 #define SIMULO_INVALID_SLAB_KEY -1
 
