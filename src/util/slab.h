@@ -7,8 +7,7 @@
 
 #define SIMULO_INVALID_SLAB_KEY -1
 
-template <class T, int Length> class Slab {
-public:
+template <class T, int Length> struct Slab {
    explicit Slab() : next_available_(0) {
       static_assert(Length > 0);
 
@@ -64,7 +63,6 @@ public:
       next_available_ = key;
    }
 
-private:
    union {
       T value;
       int next;
