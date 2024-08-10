@@ -1,4 +1,5 @@
-#include "debug_assert.h"
+#ifndef SIMULO_UTIL_SLAB_H_
+#define SIMULO_UTIL_SLAB_H_
 
 #include <string.h>
 
@@ -29,6 +30,4 @@ static inline void slab_reclaim(void *objects, size_t object_size, int obj_id, i
    *next_avail_id = obj_id;
 }
 
-#undef SLAB_TYPE
-#undef SLAB_LENGTH
-#undef SLAB_NAME
+#endif // !SIMULO_UTIL_SLAB_H_
