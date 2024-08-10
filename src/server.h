@@ -1,9 +1,6 @@
 #ifndef SIMULO_SERVER_H_
 #define SIMULO_SERVER_H_
 
-#include <array>
-#include <memory>
-
 #include "config.h"
 #include "net/networking.h"
 #include "net/win/networking.h"

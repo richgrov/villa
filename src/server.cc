@@ -1,8 +1,6 @@
 #include "server.h"
 
 #include <chrono>
-#include <cstdint>
-#include <memory>
 #include <thread>
 
 #include "net/win/networking.h"
