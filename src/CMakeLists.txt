@@ -35,10 +35,6 @@ endif()
 
 set_property(TARGET simulo PROPERTY C_STANDARD 11)
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-   set_property(TARGET simulo PROPERTY CXX_STANDARD 20)
-endif()
-
 if (false) # testing disabled for now, as there are no tests after C rewrite
    add_executable(simulo_test
       ${SOURCE_FILES}
@@ -51,7 +47,5 @@ if (false) # testing disabled for now, as there are no tests after C rewrite
       target_link_libraries(simulo_test Ws2_32.lib)
    endif()
 
-   if (CMAKE_VERSION VERSION_GREATER 3.12)
-      set_property(TARGET simulo_test PROPERTY CXX_STANDARD 20)
-   endif()
+   set_property(TARGET simulo PROPERTY C_STANDARD 11)
 endif()
