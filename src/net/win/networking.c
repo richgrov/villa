@@ -36,11 +36,11 @@ static void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
 #define LISTENER_COMPLETION_KEY -1
 
 bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
-   slab_init(net->connections_, ARRAY_LEN(net->connections_), sizeof(Connection));
+   slab_init(net->connections, ARRAY_LEN(net->connections), sizeof(Connection));
 
    memset(net, 0, sizeof(Networking));
-   net->accepted_socket_ = INVALID_SOCKET;
-   net->accepted_connections_ = accepted_connections;
+   net->accepted_socket = INVALID_SOCKET;
+   net->accepted_connections = accepted_connections;
 
    struct WSAData wsa_data;
    int startup_res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -49,26 +49,25 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
       return false;
    }
 
-   net->root_completion_port_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-   if (net->root_completion_port_ == NULL) {
+   net->root_completion_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+   if (net->root_completion_port == NULL) {
       fprintf(stderr, "error: CreateIOCompletionPort returned %lu", GetLastError());
       return false;
    }
 
-   net->listen_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-   if (net->listen_socket_ == INVALID_SOCKET) {
+   net->listen_socket = socket(AF_INET, SOCK_STREAM, 0);
+   if (net->listen_socket == INVALID_SOCKET) {
       fprintf(stderr, "error: socket returned %d", WSAGetLastError());
       return false;
    }
 
-   load_accept_ex(net->listen_socket_, &net->accept_ex_);
+   load_accept_ex(net->listen_socket, &net->accept_ex);
 
    SOCKADDR_IN bind_addr;
    bind_addr.sin_family = AF_INET;
    bind_addr.sin_addr.s_addr = INADDR_ANY;
    bind_addr.sin_port = htons(port);
-   if (bind(net->listen_socket_, (struct sockaddr *)&bind_addr, sizeof(bind_addr)) ==
-       SOCKET_ERROR) {
+   if (bind(net->listen_socket, (struct sockaddr *)&bind_addr, sizeof(bind_addr)) == SOCKET_ERROR) {
       fprintf(stderr, "error: bind returned %d", WSAGetLastError());
       return false;
    }
@@ -78,44 +77,42 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
 
 static void release_connection(Networking *net, int connection_key) {
    SIMULO_DEBUG_ASSERT(
-      connection_key >= 0 && connection_key < ARRAY_LEN(net->connections_),
+      connection_key >= 0 && connection_key < ARRAY_LEN(net->connections),
       "tried to release connection %d", connection_key
    );
 
-   Connection *conn = &net->connections_[connection_key];
+   Connection *conn = &net->connections[connection_key];
    if (conn->socket != INVALID_SOCKET) {
       close_or_log_error(conn->socket);
    }
 
-   slab_reclaim(
-      net->connections_, sizeof(Connection), connection_key, &net->next_avail_connection_
-   );
+   slab_reclaim(net->connections, sizeof(Connection), connection_key, &net->next_avail_connection);
 }
 
 void net_deinit(Networking *net) {
-   bool unallocated_connections[ARRAY_LEN(net->connections_)];
+   bool unallocated_connections[ARRAY_LEN(net->connections)];
    memset(unallocated_connections, false, sizeof(unallocated_connections));
 
-   int next = net->next_avail_connection_;
+   int next = net->next_avail_connection;
    while (next != SIMULO_INVALID_SLAB_KEY) {
       unallocated_connections[next] = true;
-      next = slab_get_next_id(&net->connections_[next]);
+      next = slab_get_next_id(&net->connections[next]);
    }
 
-   for (int i = 0; i < ARRAY_LEN(net->connections_); ++i) {
+   for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
       if (!unallocated_connections[i]) {
          release_connection(net, i);
       }
    }
 
-   closesocket(net->listen_socket_);
+   closesocket(net->listen_socket);
 }
 
 static void net_accept(Networking *net) {
-   net->accepted_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-   BOOL success = net->accept_ex_(
-      net->listen_socket_, net->accepted_socket_, net->accept_buf_, 0, SIMULO_NET_ADDRESS_LEN,
-      SIMULO_NET_ADDRESS_LEN, NULL, &net->overlapped_
+   net->accepted_socket = socket(AF_INET, SOCK_STREAM, 0);
+   BOOL success = net->accept_ex(
+      net->listen_socket, net->accepted_socket, net->accept_buf, 0, SIMULO_NET_ADDRESS_LEN,
+      SIMULO_NET_ADDRESS_LEN, NULL, &net->overlapped
    );
 
    if (!success) {
@@ -125,13 +122,13 @@ static void net_accept(Networking *net) {
 }
 
 bool net_listen(Networking *net) {
-   if (listen(net->listen_socket_, 16) == SOCKET_ERROR) {
+   if (listen(net->listen_socket, 16) == SOCKET_ERROR) {
       fprintf(stderr, "error: listen returned %d", WSAGetLastError());
       return false;
    }
 
    HANDLE listen_port = CreateIoCompletionPort(
-      (HANDLE)net->listen_socket_, net->root_completion_port_, LISTENER_COMPLETION_KEY, 0
+      (HANDLE)net->listen_socket, net->root_completion_port, LISTENER_COMPLETION_KEY, 0
    );
 
    if (listen_port == NULL) {
@@ -181,28 +178,28 @@ net_write(Networking *net, Connection *conn, const unsigned char *data, const un
 
 static void handle_accept(Networking *net, const bool success) {
    if (!success) {
-      SIMULO_DEBUG_LOG("Failed to accept %llu: %lu", net->accepted_socket_, GetLastError());
-      close_or_log_error(net->accepted_socket_);
+      SIMULO_DEBUG_LOG("Failed to accept %llu: %lu", net->accepted_socket, GetLastError());
+      close_or_log_error(net->accepted_socket);
       return;
    }
 
-   if (net->next_avail_connection_ == SIMULO_INVALID_SLAB_KEY) {
-      SIMULO_DEBUG_LOG("Out of connection objects for %llu", net->accepted_socket_);
-      close_or_log_error(net->accepted_socket_);
+   if (net->next_avail_connection == SIMULO_INVALID_SLAB_KEY) {
+      SIMULO_DEBUG_LOG("Out of connection objects for %llu", net->accepted_socket);
+      close_or_log_error(net->accepted_socket);
       return;
    }
 
-   int key = net->next_avail_connection_;
-   Connection *conn = &net->connections_[key];
-   net->next_avail_connection_ = slab_get_next_id(&conn);
+   int key = net->next_avail_connection;
+   Connection *conn = &net->connections[key];
+   net->next_avail_connection = slab_get_next_id(&conn);
 
    memset(conn, 0, sizeof(Connection));
-   conn->socket = net->accepted_socket_;
+   conn->socket = net->accepted_socket;
    conn->target_buf_len = 1;
-   net->accepted_socket_ = INVALID_SOCKET;
+   net->accepted_socket = INVALID_SOCKET;
 
    HANDLE client_completion_port =
-      CreateIoCompletionPort((HANDLE)conn->socket, net->root_completion_port_, (ULONG_PTR)key, 0);
+      CreateIoCompletionPort((HANDLE)conn->socket, net->root_completion_port, (ULONG_PTR)key, 0);
 
    if (client_completion_port == NULL) {
       SIMULO_DEBUG_LOG(
@@ -270,7 +267,7 @@ static void handle_read_login(Networking *net, int connection_key, Connection *c
       return;
    }
 
-   if (net->num_accepted_ >= SIMULO_JOIN_QUEUE_CAPACITY) {
+   if (net->num_accepted >= SIMULO_JOIN_QUEUE_CAPACITY) {
       SIMULO_DEBUG_LOG("Couldn't accept %llu because join queue is full", conn->socket);
       release_connection(net, connection_key);
       return;
@@ -285,14 +282,14 @@ static void handle_read_login(Networking *net, int connection_key, Connection *c
       username[login_packet.username_len] = '\0';
    }
 
-   IncomingConnection *inc = &net->accepted_connections_[net->num_accepted_++];
+   IncomingConnection *inc = &net->accepted_connections[net->num_accepted++];
    inc->conn = conn;
    memcpy(inc->username, username, sizeof(username));
 }
 
 static void
 handle_read(Networking *net, const bool op_success, const int connection_key, const DWORD len) {
-   Connection *conn = &net->connections_[connection_key];
+   Connection *conn = &net->connections[connection_key];
 
    if (!op_success) {
       SIMULO_DEBUG_LOG("Read failed for %lld: %lu", conn->socket, GetLastError());
@@ -332,7 +329,7 @@ handle_read(Networking *net, const bool op_success, const int connection_key, co
 
 static void
 handle_write(Networking *net, const bool op_success, const int connection_key, const DWORD len) {
-   Connection *conn = &net->connections_[connection_key];
+   Connection *conn = &net->connections[connection_key];
 
    if (!op_success) {
       SIMULO_DEBUG_LOG("Write failed for %llu: %lu", conn->socket, GetLastError());
@@ -355,7 +352,7 @@ handle_write(Networking *net, const bool op_success, const int connection_key, c
 }
 
 int net_poll(Networking *net) {
-   net->num_accepted_ = 0;
+   net->num_accepted = 0;
 
    DWORD len;
    ULONG_PTR completion_key;
@@ -363,7 +360,7 @@ int net_poll(Networking *net) {
 
    while (true) {
       BOOL op_success = GetQueuedCompletionStatus(
-         net->root_completion_port_, &len, &completion_key, &overlapped, 0
+         net->root_completion_port, &len, &completion_key, &overlapped, 0
       );
 
       bool no_more_completions = overlapped == NULL;
@@ -394,5 +391,5 @@ int net_poll(Networking *net) {
       }
    }
 
-   return net->num_accepted_;
+   return net->num_accepted;
 }

@@ -41,20 +41,20 @@ typedef struct {
 #define SIMULO_NET_ADDRESS_LEN (sizeof(struct sockaddr_in) + 16)
 
 typedef struct {
-   Connection connections_[256];
-   int next_avail_connection_;
+   Connection connections[256];
+   int next_avail_connection;
 
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
    // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
-   LPFN_ACCEPTEX accept_ex_;
-   HANDLE root_completion_port_;
-   SOCKET listen_socket_;
-   SOCKET accepted_socket_;
-   unsigned char accept_buf_[SIMULO_NET_ADDRESS_LEN * 2]; // *2 to hold the local and remote address
-   WSAOVERLAPPED overlapped_;
+   LPFN_ACCEPTEX accept_ex;
+   HANDLE root_completion_port;
+   SOCKET listen_socket;
+   SOCKET accepted_socket;
+   unsigned char accept_buf[SIMULO_NET_ADDRESS_LEN * 2]; // *2 to hold the local and remote address
+   WSAOVERLAPPED overlapped;
 
-   IncomingConnection *accepted_connections_;
-   int num_accepted_;
+   IncomingConnection *accepted_connections;
+   int num_accepted;
 } Networking;
 
 #ifdef __cplusplus
