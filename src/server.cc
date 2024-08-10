@@ -5,12 +5,14 @@
 
 #include "net/win/networking.h"
 #include "player.h"
+#include "util/arrays.h"
 
 using namespace simulo;
 
 namespace {}; // namespace
 
 Server::Server() : accepted_connections_() {
+   slab_init(players_, ARRAY_LEN(players_), sizeof(Player));
    net_init(&networking_, 25565, accepted_connections_);
 }
 
@@ -28,8 +30,15 @@ void Server::tick() {
 
    for (int i = 0; i < num_accepted; ++i) {
       IncomingConnection &incoming = accepted_connections_[i];
-      int key = players_.alloc_zeroed();
-      Player &player = players_.get(key);
+
+      if (next_avail_player_ == SIMULO_INVALID_SLAB_KEY) {
+         break; // todo
+      }
+
+      int key = next_avail_player_;
+      Player &player = players_[key];
+      next_avail_player_ = slab_get_next_id(&player);
+
       player_init(&player, incoming.conn, incoming.username);
    }
 }
