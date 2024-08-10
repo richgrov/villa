@@ -10,8 +10,6 @@
 // clang-format on
 
 #include "protocol/packets.h"
-#include "protocol/types.h"
-#include "util/slab.h"
 
 enum Operation {
    OpReadHandshake,
@@ -32,6 +30,11 @@ typedef struct {
    unsigned char target_buf_len;
 } Connection;
 
+#define SLAB_TYPE Connection
+#define SLAB_LENGTH 256
+#define SLAB_NAME ConnectionSlab
+#include "util/slab.h"
+
 typedef struct {
    Connection *conn;
    // Will be null-terminated if username length is <16. Otherwise, full buffer is used.
@@ -43,7 +46,7 @@ typedef struct {
 #define SIMULO_NET_ADDRESS_LEN (sizeof(sockaddr_in) + 16)
 
 typedef struct {
-   Slab<Connection, 256> connections_;
+   ConnectionSlab connections_;
    // Used to resolve AcceptEx dynamically instead of using the one provided by mswsock.lib. See
    // https://stackoverflow.com/a/6800704. Additionally, it slightly reduces memory usage
    LPFN_ACCEPTEX accept_ex_;

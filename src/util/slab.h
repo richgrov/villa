@@ -1,18 +1,15 @@
-#ifndef SIMULO_UTIL_SLAB_H_
-#define SIMULO_UTIL_SLAB_H_
-
 #include "debug_assert.h"
 
 #include <string.h>
 
 #define SIMULO_INVALID_SLAB_KEY -1
 
-template <class T, int Length> struct Slab {
-   explicit Slab() : next_available_(0) {
-      static_assert(Length > 0);
+struct SLAB_NAME {
+   explicit SLAB_NAME() : next_available_(0) {
+      static_assert(SLAB_LENGTH > 0);
 
-      for (int i = 0; i < Length; ++i) {
-         if (i == Length - 1) {
+      for (int i = 0; i < SLAB_LENGTH; ++i) {
+         if (i == SLAB_LENGTH - 1) {
             objects_[i].next = SIMULO_INVALID_SLAB_KEY;
          } else {
             objects_[i].next = i + 1;
@@ -20,8 +17,8 @@ template <class T, int Length> struct Slab {
       }
    }
 
-   ~Slab() {
-      bool in_use[Length];
+   ~SLAB_NAME() {
+      bool in_use[SLAB_LENGTH];
       memset(in_use, true, sizeof(in_use));
 
       int next_available = next_available_;
@@ -30,15 +27,17 @@ template <class T, int Length> struct Slab {
          next_available = objects_[next_available].next;
       }
 
-      for (int i = 0; i < Length; ++i) {
+      for (int i = 0; i < SLAB_LENGTH; ++i) {
          if (in_use[i]) {
             release(i);
          }
       }
    }
 
-   [[nodiscard]] T &get(const int index) {
-      SIMULO_DEBUG_ASSERT(index >= 0 && index < Length, "get {}, range {}", index, Length);
+   [[nodiscard]] SLAB_TYPE &get(const int index) {
+      SIMULO_DEBUG_ASSERT(
+         index >= 0 && index < SLAB_LENGTH, "get {}, range {}", index, SLAB_LENGTH
+      );
       return objects_[index].value;
    }
 
@@ -58,16 +57,18 @@ template <class T, int Length> struct Slab {
    }
 
    void release(const int key) {
-      SIMULO_DEBUG_ASSERT(key >= 0 && key < Length, "release {}, range {}", key, Length);
+      SIMULO_DEBUG_ASSERT(key >= 0 && key < SLAB_LENGTH, "release {}, range {}", key, SLAB_LENGTH);
       objects_[key].next = next_available_;
       next_available_ = key;
    }
 
    union {
-      T value;
+      SLAB_TYPE value;
       int next;
-   } objects_[Length];
+   } objects_[SLAB_LENGTH];
    int next_available_;
 };
 
-#endif // !SIMULO_UTIL_SLAB_H_
+#undef SLAB_TYPE
+#undef SLAB_LENGTH
+#undef SLAB_NAME

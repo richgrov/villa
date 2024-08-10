@@ -8,6 +8,10 @@
 #include "net/networking.h"
 #include "net/win/networking.h"
 #include "player.h"
+
+#define SLAB_NAME PlayerSlab
+#define SLAB_TYPE Player
+#define SLAB_LENGTH 256
 #include "util/slab.h"
 
 namespace simulo {
@@ -26,7 +30,7 @@ private:
    void tick();
 
    IncomingConnection accepted_connections_[SIMULO_JOIN_QUEUE_CAPACITY];
-   Slab<Player, 256> players_;
+   PlayerSlab players_;
    Networking networking_;
 };
 
