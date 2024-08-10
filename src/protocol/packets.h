@@ -38,12 +38,12 @@ typedef struct {
    int16_t username_len;
 } Handshake;
 
-const unsigned char OFFLINE_MODE_RESPONSE[] = {
-    HANDSHAKE_ID, // packet id
-    0,            // username length high byte
-    1,            // username legth low byte
-    0,            // first char high byte
-    '-'           // first char low byte
+static const unsigned char OFFLINE_MODE_RESPONSE[] = {
+   HANDSHAKE_ID, // packet id
+   0,            // username length high byte
+   1,            // username legth low byte
+   0,            // first char high byte
+   '-'           // first char low byte
 };
 
 #ifdef __cplusplus
