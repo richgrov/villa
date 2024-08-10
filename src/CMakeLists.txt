@@ -22,7 +22,7 @@ set(SOURCE_FILES
 )
 
 add_executable(simulo 
-   "main.cc"
+   "main.c"
    ${SOURCE_FILES}
 )
 
