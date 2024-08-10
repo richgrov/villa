@@ -7,6 +7,8 @@
 
 #include "config.h"
 #include "protocol/packets.h"
+#include "server.h" // temporary
+#include "util/arrays.h"
 #include "util/debug_assert.h"
 
 namespace {
@@ -38,6 +40,8 @@ constexpr ULONG_PTR kListenerCompletionKey = -1;
 } // namespace
 
 bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
+   slab_init(net->connections_, ARRAY_LEN(net->connections_), sizeof(Connection));
+
    memset(net, 0, sizeof(Networking));
    net->accepted_socket_ = INVALID_SOCKET;
    net->accepted_connections_ = accepted_connections;
@@ -76,16 +80,39 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
    return true;
 }
 
-void net_deinit(Networking *net) {
-   closesocket(net->listen_socket_);
-}
-
 static void release_connection(Networking *net, int connection_key) {
-   Connection &conn = net->connections_.get(connection_key);
+   SIMULO_DEBUG_ASSERT(
+      connection_key >= 0 && connection_key < ARRAY_LEN(net->connections_),
+      "tried to release connection %d", connection_key
+   );
+
+   Connection &conn = net->connections_[connection_key];
    if (conn.socket != INVALID_SOCKET) {
       close_or_log_error(conn.socket);
    }
-   net->connections_.release(connection_key);
+
+   slab_reclaim(
+      net->connections_, sizeof(Connection), connection_key, &net->next_avail_connection_
+   );
+}
+
+void net_deinit(Networking *net) {
+   bool unallocated_connections[ARRAY_LEN(net->connections_)];
+   memset(unallocated_connections, false, sizeof(unallocated_connections));
+
+   int next = net->next_avail_connection_;
+   while (next != SIMULO_INVALID_SLAB_KEY) {
+      unallocated_connections[next] = true;
+      next = slab_get_next_id(&net->connections_[next]);
+   }
+
+   for (int i = 0; i < ARRAY_LEN(net->connections_); ++i) {
+      if (!unallocated_connections[i]) {
+         release_connection(net, i);
+      }
+   }
+
+   closesocket(net->listen_socket_);
 }
 
 static void net_accept(Networking *net) {
@@ -165,14 +192,17 @@ static void handle_accept(Networking *net, const bool success) {
       return;
    }
 
-   int key = net->connections_.alloc_zeroed();
-   if (key == SIMULO_INVALID_SLAB_KEY) {
+   if (net->next_avail_connection_ == SIMULO_INVALID_SLAB_KEY) {
       SIMULO_DEBUG_LOG("Out of connection objects for %llu", net->accepted_socket_);
       close_or_log_error(net->accepted_socket_);
       return;
    }
 
-   Connection &conn = net->connections_.get(key);
+   int key = net->next_avail_connection_;
+   Connection &conn = net->connections_[key];
+   net->next_avail_connection_ = slab_get_next_id(&conn);
+
+   memset(&conn, 0, sizeof(conn));
    conn.socket = net->accepted_socket_;
    conn.target_buf_len = 1;
    net->accepted_socket_ = INVALID_SOCKET;
@@ -270,7 +300,7 @@ static void handle_read_login(Networking *net, int connection_key, Connection &c
 
 static void
 handle_read(Networking *net, const bool op_success, const int connection_key, const DWORD len) {
-   Connection &conn = net->connections_.get(connection_key);
+   Connection &conn = net->connections_[connection_key];
 
    if (!op_success) {
       SIMULO_DEBUG_LOG("Read failed for %lld: %lu", conn.socket, GetLastError());
@@ -310,7 +340,7 @@ handle_read(Networking *net, const bool op_success, const int connection_key, co
 
 static void
 handle_write(Networking *net, const bool op_success, const int connection_key, const DWORD len) {
-   Connection &conn = net->connections_.get(connection_key);
+   Connection &conn = net->connections_[connection_key];
 
    if (!op_success) {
       SIMULO_DEBUG_LOG("Write failed for %llu: %lu", conn.socket, GetLastError());
