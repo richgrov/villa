@@ -67,8 +67,7 @@ bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted
    bind_addr.sin_family = AF_INET;
    bind_addr.sin_addr.s_addr = INADDR_ANY;
    bind_addr.sin_port = htons(port);
-   if (bind(net->listen_socket_, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr)) ==
-       SOCKET_ERROR) {
+   if (bind(net->listen_socket_, (sockaddr *)&bind_addr, sizeof(bind_addr)) == SOCKET_ERROR) {
       fprintf(stderr, "error: bind returned %d", WSAGetLastError());
       return false;
    }
@@ -131,8 +130,7 @@ bool net_listen(Networking *net) {
    }
 
    HANDLE listen_port = CreateIoCompletionPort(
-      reinterpret_cast<HANDLE>(net->listen_socket_), net->root_completion_port_,
-      kListenerCompletionKey, 0
+      (HANDLE)net->listen_socket_, net->root_completion_port_, kListenerCompletionKey, 0
    );
 
    if (listen_port == nullptr) {
@@ -146,7 +144,7 @@ bool net_listen(Networking *net) {
 
 static void net_read(Networking *net, Connection &conn) {
    WSABUF buf;
-   buf.buf = reinterpret_cast<CHAR *>(&conn.buf[conn.buf_used]);
+   buf.buf = (CHAR *)&conn.buf[conn.buf_used];
    buf.len = sizeof(conn.buf) - conn.buf_used;
 
    DWORD flags = 0;
@@ -164,12 +162,12 @@ static void
 net_write(Networking *net, Connection &conn, const unsigned char *data, const unsigned int len) {
    SIMULO_DEBUG_ASSERT(
       conn.overlapped.operation == OpWriteHandshake, "expected writing op but got %d",
-      static_cast<int>(conn.overlapped.operation)
+      (int)conn.overlapped.operation
    );
 
    WSABUF buf;
-   // Buffer is read-only- safe to const_cast
-   buf.buf = const_cast<CHAR *>(reinterpret_cast<const CHAR *>(data));
+   // Buffer is read-only- safe to cast away const
+   buf.buf = (CHAR *)data;
    buf.len = len;
 
    conn.buf_used = len;
@@ -203,10 +201,8 @@ static void handle_accept(Networking *net, const bool success) {
    conn.target_buf_len = 1;
    net->accepted_socket_ = INVALID_SOCKET;
 
-   HANDLE client_completion_port = CreateIoCompletionPort(
-      reinterpret_cast<HANDLE>(conn.socket), net->root_completion_port_,
-      static_cast<ULONG_PTR>(key), 0
-   );
+   HANDLE client_completion_port =
+      CreateIoCompletionPort((HANDLE)conn.socket, net->root_completion_port_, (ULONG_PTR)key, 0);
 
    if (client_completion_port == nullptr) {
       SIMULO_DEBUG_LOG(
@@ -247,7 +243,7 @@ static void handle_read_handshake(Networking *net, int connection_key, Connectio
          min_remaining_bytes
       );
 
-      conn.target_buf_len += static_cast<unsigned int>(min_remaining_bytes);
+      conn.target_buf_len += (unsigned int)min_remaining_bytes;
       SIMULO_DEBUG_ASSERT(
          conn.target_buf_len <= sizeof(conn.buf), "target=%d", conn.target_buf_len
       );
@@ -282,7 +278,7 @@ static void handle_read_login(Networking *net, int connection_key, Connection &c
 
    std::array<char, 16> username;
    for (int i = 0; i < login_packet.username_len; ++i) {
-      username[i] = static_cast<char>(login_packet.username[i]);
+      username[i] = (char)login_packet.username[i];
    }
 
    if (login_packet.username_len < 16) {
@@ -310,8 +306,8 @@ handle_read(Networking *net, const bool op_success, const int connection_key, co
    }
 
    SIMULO_DEBUG_ASSERT(
-      len + static_cast<DWORD>(conn.buf_used) <= sizeof(conn.buf), "conn=%d, len=%lu, used=%d",
-      connection_key, len, conn.buf_used
+      len + (DWORD)conn.buf_used <= sizeof(conn.buf), "conn=%d, len=%lu, used=%d", connection_key,
+      len, conn.buf_used
    );
 
    conn.buf_used += len;
@@ -330,7 +326,7 @@ handle_read(Networking *net, const bool op_success, const int connection_key, co
       break;
 
    default:
-      SIMULO_PANIC("invalid op %d", static_cast<int>(conn.overlapped.operation));
+      SIMULO_PANIC("invalid op %d", (int)conn.overlapped.operation);
    }
 }
 
@@ -379,8 +375,8 @@ int net_poll(Networking *net) {
       if (accepted_new_connection) {
          handle_accept(net, op_success);
       } else {
-         auto *with_op = reinterpret_cast<OverlappedWithOp *>(overlapped);
-         int conn_key = static_cast<int>(completion_key);
+         auto *with_op = (OverlappedWithOp *)overlapped;
+         int conn_key = (int)completion_key;
 
          switch (with_op->operation) {
          case OpReadHandshake:
@@ -393,7 +389,7 @@ int net_poll(Networking *net) {
             break;
 
          default:
-            SIMULO_PANIC("op = %d", static_cast<int>(with_op->operation));
+            SIMULO_PANIC("op = %d", (int)with_op->operation);
          }
       }
    }
