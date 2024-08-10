@@ -1,7 +1,7 @@
 #include "player.h"
 
-#include <cstring>
 #include <iostream>
+#include <string.h>
 
 #include "net/networking.h"
 #include "protocol/packets.h"
