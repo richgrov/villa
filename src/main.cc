@@ -16,15 +16,15 @@ void tick() {
    int num_accepted = net_poll(&networking);
 
    for (int i = 0; i < num_accepted; ++i) {
-      IncomingConnection &incoming = join_queue[i];
+      IncomingConnection *incoming = &join_queue[i];
 
       if (next_avail_player == OUT_OF_PLAYERS) {
          break; // todo
       }
 
-      Player &player = players[next_avail_player];
-      next_avail_player = player.next;
-      player_init(&player, incoming.conn, incoming.username);
+      Player *player = &players[next_avail_player];
+      next_avail_player = player->next;
+      player_init(player, incoming->conn, incoming->username);
    }
 }
 
