@@ -31,7 +31,7 @@ static void load_accept_ex(SOCKET listener, LPFN_ACCEPTEX *fn) {
    }
 }
 
-constexpr ULONG_PTR kListenerCompletionKey = -1;
+#define LISTENER_COMPLETION_KEY -1
 
 bool net_init(Networking *net, const uint16_t port, IncomingConnection *accepted_connections) {
    slab_init(net->connections_, ARRAY_LEN(net->connections_), sizeof(Connection));
@@ -128,7 +128,7 @@ bool net_listen(Networking *net) {
    }
 
    HANDLE listen_port = CreateIoCompletionPort(
-      (HANDLE)net->listen_socket_, net->root_completion_port_, kListenerCompletionKey, 0
+      (HANDLE)net->listen_socket_, net->root_completion_port_, LISTENER_COMPLETION_KEY, 0
    );
 
    if (listen_port == nullptr) {
@@ -369,7 +369,7 @@ int net_poll(Networking *net) {
          break;
       }
 
-      bool accepted_new_connection = completion_key == kListenerCompletionKey;
+      bool accepted_new_connection = completion_key == LISTENER_COMPLETION_KEY;
       if (accepted_new_connection) {
          handle_accept(net, op_success);
       } else {
