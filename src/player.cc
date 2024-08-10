@@ -5,7 +5,6 @@
 
 #include "net/networking.h"
 #include "protocol/packets.h"
-#include "protocol/types.h"
 
 namespace {
 
