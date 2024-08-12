@@ -1,7 +1,9 @@
 #ifndef SIMULO_UTIL_CROSSPLATFORM_TIME_H_
 #define SIMULO_UTIL_CROSSPLATFORM_TIME_H_
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#include "util/os_detect.h"
+
+#ifdef SIMULO_WINDOWS
 
 #include <Windows.h>
 
