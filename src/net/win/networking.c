@@ -294,7 +294,7 @@ static void handle_read_login(Networking *net, int connection_key, Connection *c
 
    IncomingConnection *inc = &net->accepted_connections[net->num_accepted++];
    inc->conn = conn;
-   memcpy(inc->username, username, sizeof(username));
+   memcpy(inc->username, username, sizeof(inc->username));
 }
 
 static void
