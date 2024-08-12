@@ -22,13 +22,19 @@ typedef struct {
    unsigned char operation;
 } OverlappedWithOp;
 
+typedef struct {
+   OverlappedWithOp overlapped;
+   unsigned char buf[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
+   unsigned char buf_used;
+   unsigned char target_buf_len;
+} LoginConnection;
+
 typedef union {
    struct {
       SOCKET socket;
-      OverlappedWithOp overlapped;
-      unsigned char buf[LOGIN_PACKET_SIZE(MAX_USERNAME_LEN)];
-      unsigned char buf_used;
-      unsigned char target_buf_len;
+      union {
+         LoginConnection login;
+      };
    };
    int next;
 } Connection;

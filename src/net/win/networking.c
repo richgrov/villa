@@ -152,11 +152,12 @@ bool net_listen(Networking *net) {
 
 static void net_read(Networking *net, Connection *conn) {
    WSABUF buf;
-   buf.buf = (CHAR *)&conn->buf[conn->buf_used];
-   buf.len = sizeof(conn->buf) - conn->buf_used;
+   buf.buf = (CHAR *)&conn->login.buf[conn->login.buf_used];
+   buf.len = sizeof(conn->login.buf) - conn->login.buf_used;
 
    DWORD flags = 0;
-   int result = WSARecv(conn->socket, &buf, 1, NULL, &flags, &conn->overlapped.overlapped, NULL);
+   int result =
+      WSARecv(conn->socket, &buf, 1, NULL, &flags, &conn->login.overlapped.overlapped, NULL);
 
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
@@ -168,8 +169,8 @@ static void net_read(Networking *net, Connection *conn) {
 static void
 net_write(Networking *net, Connection *conn, const unsigned char *data, const unsigned int len) {
    SIMULO_DEBUG_ASSERT(
-      conn->overlapped.operation == OpWriteHandshake, "expected writing op but got %d",
-      (int)conn->overlapped.operation
+      conn->login.overlapped.operation == OpWriteHandshake, "expected writing op but got %d",
+      (int)conn->login.overlapped.operation
    );
 
    WSABUF buf;
@@ -177,9 +178,9 @@ net_write(Networking *net, Connection *conn, const unsigned char *data, const un
    buf.buf = (CHAR *)data;
    buf.len = len;
 
-   conn->buf_used = len;
+   conn->login.buf_used = len;
 
-   int result = WSASend(conn->socket, &buf, 1, NULL, 0, &conn->overlapped.overlapped, NULL);
+   int result = WSASend(conn->socket, &buf, 1, NULL, 0, &conn->login.overlapped.overlapped, NULL);
    if (result == SOCKET_ERROR) {
       int err = WSAGetLastError();
       SIMULO_DEBUG_ASSERT(err == ERROR_IO_PENDING, "err = %d", err);
@@ -205,7 +206,7 @@ static void handle_accept(Networking *net, const bool success) {
 
    memset(conn, 0, sizeof(Connection));
    conn->socket = net->accepted_socket;
-   conn->target_buf_len = 1;
+   conn->login.target_buf_len = 1;
    net->accepted_socket = INVALID_SOCKET;
 
    HANDLE client_completion_port =
@@ -226,7 +227,8 @@ static void handle_accept(Networking *net, const bool success) {
 
 static void handle_read_handshake(Networking *net, int connection_key, Connection *conn) {
    Handshake handshake = {};
-   int min_remaining_bytes = remaining_handshake_bytes(conn->buf, conn->buf_used, &handshake);
+   int min_remaining_bytes =
+      remaining_handshake_bytes(conn->login.buf, conn->login.buf_used, &handshake);
    switch (min_remaining_bytes) {
    case -1:
       SIMULO_DEBUG_LOG("Couldn't read handshake from %llu", conn->socket);
@@ -238,21 +240,22 @@ static void handle_read_handshake(Networking *net, int connection_key, Connectio
          handshake.username_len > 0 && handshake.username_len <= 16, "username len = %d",
          handshake.username_len
       );
-      conn->target_buf_len = LOGIN_PACKET_SIZE(handshake.username_len);
+      conn->login.target_buf_len = LOGIN_PACKET_SIZE(handshake.username_len);
 
-      conn->overlapped.operation = OpWriteHandshake;
+      conn->login.overlapped.operation = OpWriteHandshake;
       net_write(net, conn, OFFLINE_MODE_RESPONSE, sizeof(OFFLINE_MODE_RESPONSE));
       break;
 
    default:
       SIMULO_DEBUG_ASSERT(
-         min_remaining_bytes > 0 && min_remaining_bytes <= sizeof(conn->buf), "remaining = %d",
-         min_remaining_bytes
+         min_remaining_bytes > 0 && min_remaining_bytes <= sizeof(conn->login.buf),
+         "remaining = %d", min_remaining_bytes
       );
 
-      conn->target_buf_len += (unsigned int)min_remaining_bytes;
+      conn->login.target_buf_len += (unsigned int)min_remaining_bytes;
       SIMULO_DEBUG_ASSERT(
-         conn->target_buf_len <= sizeof(conn->buf), "target=%d", conn->target_buf_len
+         conn->login.target_buf_len <= sizeof(conn->login.buf), "target=%d",
+         conn->login.target_buf_len
       );
 
       net_read(net, conn);
@@ -262,7 +265,7 @@ static void handle_read_handshake(Networking *net, int connection_key, Connectio
 
 static void handle_read_login(Networking *net, int connection_key, Connection *conn) {
    Login login_packet = {};
-   bool ok = read_login_pkt(conn->buf, conn->buf_used, &login_packet);
+   bool ok = read_login_pkt(conn->login.buf, conn->login.buf_used, &login_packet);
    if (!ok) {
       SIMULO_DEBUG_LOG("Couldn't read login from %llu", conn->socket);
       release_connection(net, connection_key);
@@ -313,17 +316,17 @@ handle_read(Networking *net, const bool op_success, const int connection_key, co
    }
 
    SIMULO_DEBUG_ASSERT(
-      len + (DWORD)conn->buf_used <= sizeof(conn->buf), "conn=%d, len=%lu, used=%d", connection_key,
-      len, conn->buf_used
+      len + (DWORD)conn->login.buf_used <= sizeof(conn->login.buf), "conn=%d, len=%lu, used=%d",
+      connection_key, len, conn->login.buf_used
    );
 
-   conn->buf_used += len;
-   if (conn->buf_used < conn->target_buf_len) {
+   conn->login.buf_used += len;
+   if (conn->login.buf_used < conn->login.target_buf_len) {
       net_read(net, conn);
       return;
    }
 
-   switch (conn->overlapped.operation) {
+   switch (conn->login.overlapped.operation) {
    case OpReadHandshake:
       handle_read_handshake(net, connection_key, conn);
       break;
@@ -333,7 +336,7 @@ handle_read(Networking *net, const bool op_success, const int connection_key, co
       break;
 
    default:
-      SIMULO_PANIC("invalid op %d", (int)conn->overlapped.operation);
+      SIMULO_PANIC("invalid op %d", (int)conn->login.overlapped.operation);
    }
 }
 
@@ -348,16 +351,16 @@ handle_write(Networking *net, const bool op_success, const int connection_key, c
 
    // Although not official, WSASend has never been observed to partially complete unless the socket
    // loses connection. Keep things simple by asserting that the operation should fully complete.
-   if (len < conn->buf_used) {
+   if (len < conn->login.buf_used) {
       SIMULO_DEBUG_LOG(
-         "Only wrote %lu bytes to %llu instead of %d", len, conn->socket, conn->buf_used
+         "Only wrote %lu bytes to %llu instead of %d", len, conn->socket, conn->login.buf_used
       );
       release_connection(net, connection_key);
       return;
    }
 
-   conn->overlapped.operation = OpReadLogin;
-   conn->buf_used = 0;
+   conn->login.overlapped.operation = OpReadLogin;
+   conn->login.buf_used = 0;
    net_read(net, conn);
 }
 
