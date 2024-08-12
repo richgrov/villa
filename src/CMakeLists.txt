@@ -35,8 +35,9 @@ endif()
 
 set_property(TARGET simulo PROPERTY C_STANDARD 11)
 
-if (false) # testing disabled for now, as there are no tests after C rewrite
+if (BUILD_TESTING)
    add_executable(simulo_test
+      test_main.c
       ${SOURCE_FILES}
    )
 
