@@ -1,15 +1,21 @@
 #ifndef SIMULO_UTIL_DEBUG_ASSERT_H_
 #define SIMULO_UTIL_DEBUG_ASSERT_H_
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#define ASSERT(cond, fmt, ...)                                                                     \
+   if (!(cond)) {                                                                                  \
+      fprintf(stderr, "%s:%d: " fmt, __FILE__, __LINE__, __VA_ARGS__);                             \
+      abort();                                                                                     \
+   }
+
 #ifdef NDEBUG
 
 #define SIMULO_DEBUG_ASSERT(cond, fmt, ...)
 #define SIMULO_DEBUG_LOG(fmt, ...)
 
 #else // NDEBUG
-
-#include <stdio.h>
-#include <stdlib.h>
 
 #define SIMULO_DEBUG_ASSERT(cond, fmt, ...)                                                        \
    {                                                                                               \
