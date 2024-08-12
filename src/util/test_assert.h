@@ -9,4 +9,8 @@ static void assert_eq_i16(int16_t expected, int16_t actual) {
    ASSERT(expected == actual, "%d != %d", expected, actual);
 }
 
+static void assert_eq_i32(int32_t expected, int32_t actual) {
+   ASSERT(expected == actual, "%d != %d", expected, actual);
+}
+
 #endif // !SIMULO_UTIL_TEST_ASSERT_H_
