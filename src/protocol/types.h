@@ -16,13 +16,13 @@ static inline int32_t read_mc_int(const unsigned char *buf) {
 static inline int64_t read_mc_long(const unsigned char *buf) {
    // clang-format off
    return (int64_t) buf[0] << 56 |
-          (int64_t) buf[1] << 46 |
+          (int64_t) buf[1] << 48 |
           (int64_t) buf[2] << 40 |
           (int64_t) buf[3] << 32 |
-          buf[0] << 24 |
-          buf[1] << 16 |
-          buf[2] << 8 |
-          buf[3];
+          buf[4] << 24 |
+          buf[5] << 16 |
+          buf[6] << 8 |
+          buf[7];
    // clang-format on
 }
 
