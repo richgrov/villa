@@ -12,6 +12,14 @@ static inline int32_t read_mc_int(const unsigned char *buf) {
    return buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
 }
 
+static inline unsigned char *write_mc_int(unsigned char *buf, int32_t i) {
+   buf[0] = i >> 24;
+   buf[1] = i >> 16;
+   buf[2] = i >> 8;
+   buf[3] = i;
+   return buf + sizeof(int32_t);
+}
+
 // TODO tests
 static inline int64_t read_mc_long(const unsigned char *buf) {
    // clang-format off
@@ -24,6 +32,18 @@ static inline int64_t read_mc_long(const unsigned char *buf) {
           buf[6] << 8 |
           buf[7];
    // clang-format on
+}
+
+static inline unsigned char *write_mc_long(unsigned char *buf, int64_t i) {
+   buf[0] = i >> 56;
+   buf[1] = i >> 48;
+   buf[2] = i >> 40;
+   buf[3] = i >> 32;
+   buf[4] = i >> 24;
+   buf[5] = i >> 16;
+   buf[6] = i >> 8;
+   buf[7] = i;
+   return buf + sizeof(int64_t);
 }
 
 typedef uint16_t McChar;
