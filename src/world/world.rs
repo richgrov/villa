@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, f32::consts::PI, rc::Rc};
 
 use glam::{Mat4, Vec3};
 use slab::Slab;
@@ -223,7 +223,9 @@ impl Scene for World {
 
     fn handle_mouse_move(&mut self, gpu: &crate::gpu::GpuWrapper, position: PhysicalPosition<f32>) {
         if let Some(last_pos) = self.last_cursor_position {
-            self.camera_pitch -= (last_pos.y - position.y) * MOUSE_SENSITIVITY;
+            let pitch_change = (last_pos.y - position.y) * MOUSE_SENSITIVITY;
+            self.camera_pitch = (self.camera_pitch - pitch_change).clamp(-PI / 2.0, PI / 2.0);
+
             self.camera_yaw += (last_pos.x - position.x) * MOUSE_SENSITIVITY;
             self.update_position(gpu);
         }
