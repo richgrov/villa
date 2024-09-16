@@ -48,11 +48,11 @@ pub fn write_str<W: Write>(writer: &mut W, s: &str) -> Result<(), Error> {
 
 pub async fn read_entity_attributes<R: AsyncReadExt + std::marker::Unpin>(
     reader: &mut R,
-) -> Result<HashMap<i8, EntityAttributeValue>, Error> {
+) -> Result<HashMap<u8, EntityAttributeValue>, Error> {
     let mut entries = HashMap::with_capacity(2);
 
     loop {
-        let header = reader.read_i8().await?;
+        let header = reader.read_u8().await?;
         if header == 127 {
             break;
         }
@@ -77,7 +77,7 @@ pub enum EntityAttributeValue {
 
 impl EntityAttributeValue {
     pub async fn read<R: AsyncReadExt + std::marker::Unpin>(
-        ty: i8,
+        ty: u8,
         reader: &mut R,
     ) -> Result<EntityAttributeValue, Error> {
         Ok(match ty {

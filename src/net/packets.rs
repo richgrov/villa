@@ -464,7 +464,7 @@ pub struct SpawnEntity {
     pub z: i32,
     pub yaw: i8,
     pub pitch: i8,
-    pub attributes: HashMap<i8, EntityAttributeValue>,
+    pub attributes: HashMap<u8, EntityAttributeValue>,
 }
 
 id!(SpawnEntity, 24);
@@ -639,7 +639,7 @@ impl InboundPacket for SetEntityHealth {
 
 pub struct UpdateEntityAttributes {
     pub id: i32,
-    pub attributes: HashMap<i8, EntityAttributeValue>,
+    pub attributes: HashMap<u8, EntityAttributeValue>,
 }
 
 id!(UpdateEntityAttributes, 40);
