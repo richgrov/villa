@@ -1,4 +1,5 @@
 #include <liburing.h>
+#include <netinet/in.h>
 
 typedef struct {
 } Connection;
@@ -10,6 +11,9 @@ typedef struct {
 } IncomingConnection;
 
 typedef struct {
+   struct sockaddr_in address;
+   socklen_t address_size;
+   int fd;
 } Networking;
 
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections);
