@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 static inline bool enable_reuseaddr(int fd) {
    int value = 1;
@@ -40,7 +41,10 @@ bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_conne
    return true;
 }
 
-void net_deinit(Networking *net) {}
+void net_deinit(Networking *net) {
+   shutdown(net->fd, SHUT_RDWR);
+   close(net->fd);
+}
 
 bool net_listen(Networking *net) {
    return false;
