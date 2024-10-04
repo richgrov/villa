@@ -38,7 +38,7 @@ static void assert_eq_bytes(
 #ifdef SIMULO_WINDOWS
       ASSERT(exp == act, "expected byte %lld to be %d but got %d", i, exp, act);
 #else
-      ASSERT(ex == ac, "expected byte %ld to be %d but got %d", i, ex, ac);
+      ASSERT(exp == act, "expected byte %ld to be %d but got %d", i, exp, act);
 #endif
    }
 }
