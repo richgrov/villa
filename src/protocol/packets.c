@@ -1,5 +1,7 @@
 #include "packets.h"
 
+#include <stddef.h>
+
 #include "types.h"
 
 bool read_login_pkt(const unsigned char *buf, const size_t len, Login *pkt) {

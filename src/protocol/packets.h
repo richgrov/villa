@@ -2,6 +2,7 @@
 #define SIMULO_PROTOCOL_PACKETS_H_
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "types.h"
