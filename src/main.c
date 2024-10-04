@@ -1,6 +1,5 @@
 #include "config.h"
 #include "net/networking.h" // IWYU pragma: export
-#include "net/win/networking.h"
 #include "player.h"
 #include "util/arrays.h"
 #include "util/crossplatform_time.h"
