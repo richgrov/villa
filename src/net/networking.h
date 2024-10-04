@@ -3,9 +3,13 @@
 
 #include "util/os_detect.h"
 
-#ifdef SIMULO_WINDOWS
+#if defined(SIMULO_WINDOWS)
 
 #include "win/networking.h"
+
+#elif defined(SIMULO_LINUX)
+
+#include "io_uring/networking.h"
 
 #else // windows
 

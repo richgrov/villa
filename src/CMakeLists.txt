@@ -3,6 +3,11 @@ if (WIN32)
       "net/win/networking.c"
       "net/win/networking.h"
    )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+   set(OS_SPECIFIC_FILES
+      "net/io_uring/networking.c"
+      "net/io_uring/networking.h"
+   )
 endif()
 
 set(SOURCE_FILES
