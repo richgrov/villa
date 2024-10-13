@@ -10,7 +10,10 @@
 
 #include "util/arrays.h"
 
-#define ACCEPT_CQE_ID NETWORKING_NUM_CONNECTIONS
+#define ACCEPT_CQE_ID 0xFFFFFFFFFFFFFFFF
+#define CONNECTION_ID_MASK 0xFF
+#define CONN_READ_FLAG (1 << 8)
+#define CONN_WRITE_FLAG (1 << 9)
 
 static inline bool enable_reuseaddr(int fd) {
    int value = 1;
@@ -24,6 +27,12 @@ static inline void queue_accept(Networking *net) {
       sqe, net->fd, (struct sockaddr *)&net->address, &net->address_size, 0
    );
    sqe->user_data = ACCEPT_CQE_ID;
+}
+
+static inline void queue_read(Networking *net, int conn_id, Connection *conn) {
+   struct io_uring_sqe *sqe = io_uring_get_sqe(&net->ring);
+   io_uring_prep_recv(sqe, conn->fd, conn->buf, sizeof(conn->buf), 0);
+   sqe->user_data = conn_id | CONN_READ_FLAG;
 }
 
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections) {
@@ -104,9 +113,15 @@ static inline void handle_accept(Networking *net, struct io_uring_cqe *cqe) {
    }
 
    int conn_id = net->next_unallocated_conn;
-   net->connections[conn_id].fd = cqe->res;
-   printf("%d\n", conn_id);
+   Connection *conn = &net->connections[conn_id];
    net->next_unallocated_conn = net->connections[conn_id].next_unallocated;
+
+   conn->fd = cqe->res;
+   queue_read(net, conn_id, conn);
+}
+
+static void handle_read(Networking *net, struct io_uring_cqe *cqe) {
+   printf("read %d\n", cqe->res);
 }
 
 int net_poll(Networking *net) {
@@ -120,6 +135,11 @@ int net_poll(Networking *net) {
       ++count;
       if (cqe->user_data == ACCEPT_CQE_ID) {
          handle_accept(net, cqe);
+         continue;
+      }
+
+      if (cqe->user_data & CONN_READ_FLAG) {
+         handle_read(net, cqe);
       }
    }
 
