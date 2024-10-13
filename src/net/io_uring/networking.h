@@ -1,7 +1,11 @@
 #include <liburing.h>
 #include <netinet/in.h>
 
-typedef struct {
+typedef union {
+   unsigned char next_unallocted;
+   struct {
+      int fd;
+   };
 } Connection;
 
 typedef struct {
@@ -10,11 +14,15 @@ typedef struct {
    char username[16];
 } IncomingConnection;
 
+#define NETWORKING_NUM_CONNECTIONS 128
+
 typedef struct {
    struct io_uring ring;
    struct sockaddr_in address;
    socklen_t address_size;
    int fd;
+   unsigned char next_unallocated_conn;
+   Connection connections[NETWORKING_NUM_CONNECTIONS];
 } Networking;
 
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections);

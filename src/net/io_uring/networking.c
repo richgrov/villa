@@ -8,6 +8,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "util/arrays.h"
+
+#define ACCEPT_CQE_ID NETWORKING_NUM_CONNECTIONS
+
 static inline bool enable_reuseaddr(int fd) {
    int value = 1;
    int res = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
@@ -19,10 +23,14 @@ static inline void queue_accept(Networking *net) {
    io_uring_prep_multishot_accept(
       sqe, net->fd, (struct sockaddr *)&net->address, &net->address_size, 0
    );
-   sqe->user_data = 12;
+   sqe->user_data = ACCEPT_CQE_ID;
 }
 
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections) {
+   for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
+      net->connections[i].next_unallocted = i + 1;
+   }
+
    struct sockaddr_in address = {
       .sin_family = AF_INET,
       .sin_port = htons(port),
@@ -78,6 +86,29 @@ bool net_listen(Networking *net) {
    return ok;
 }
 
+static inline void handle_accept(Networking *net, struct io_uring_cqe *cqe) {
+   if (!(cqe->flags & IORING_CQE_F_MORE)) {
+      queue_accept(net);
+   }
+
+   if (cqe->res < 0) {
+      // TODO: Don't print certain client-causable errors
+      fprintf(stderr, "accept error: %d\n", -cqe->res);
+      return;
+   }
+
+   bool out_of_connections = net->next_unallocated_conn >= ARRAY_LEN(net->connections);
+   if (out_of_connections) {
+      // TODO: Send disconnect packet
+      return;
+   }
+
+   int conn_id = net->next_unallocated_conn;
+   net->next_unallocated_conn = net->connections[conn_id].next_unallocted;
+   net->connections[conn_id].fd = cqe->res;
+   printf("%d\n", conn_id);
+}
+
 int net_poll(Networking *net) {
    io_uring_submit_and_wait(&net->ring, 1);
 
@@ -87,9 +118,8 @@ int net_poll(Networking *net) {
 
    io_uring_for_each_cqe(&net->ring, head, cqe) {
       ++count;
-      printf("%llu\n", cqe->user_data);
-      if (!(cqe->flags & IORING_CQE_F_MORE)) {
-         queue_accept(net);
+      if (cqe->user_data == ACCEPT_CQE_ID) {
+         handle_accept(net, cqe);
       }
    }
 
