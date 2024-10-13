@@ -4,7 +4,7 @@
 #include "protocol/types.h"
 
 #define LOGIN_PACKET_SIZE                                                                          \
-   sizeof(char) + sizeof(char) + sizeof(McString) + sizeof(McString) + sizeof(char)
+   (sizeof(char) + sizeof(char) + sizeof(McString) + sizeof(McString) + sizeof(char))
 
 typedef union {
    unsigned char next_unallocated;
