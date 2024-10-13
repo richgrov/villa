@@ -16,7 +16,9 @@ static inline bool enable_reuseaddr(int fd) {
 
 static inline void queue_accept(Networking *net) {
    struct io_uring_sqe *sqe = io_uring_get_sqe(&net->ring);
-   io_uring_prep_accept(sqe, net->fd, (struct sockaddr *)&net->address, &net->address_size, 0);
+   io_uring_prep_multishot_accept(
+      sqe, net->fd, (struct sockaddr *)&net->address, &net->address_size, 0
+   );
    sqe->user_data = 12;
 }
 
@@ -86,6 +88,9 @@ int net_poll(Networking *net) {
    io_uring_for_each_cqe(&net->ring, head, cqe) {
       ++count;
       printf("%llu\n", cqe->user_data);
+      if (!(cqe->flags & IORING_CQE_F_MORE)) {
+         queue_accept(net);
+      }
    }
 
    io_uring_cq_advance(&net->ring, count);
