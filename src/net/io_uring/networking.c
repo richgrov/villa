@@ -61,7 +61,11 @@ void net_deinit(Networking *net) {
 }
 
 bool net_listen(Networking *net) {
-   return false;
+   bool ok = listen(net->fd, 16) == 0;
+   if (!ok) {
+      fprintf(stderr, "couldn't listen on %d: %d", net->fd, errno);
+   }
+   return ok;
 }
 
 int net_poll(Networking *net) {
