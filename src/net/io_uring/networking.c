@@ -140,7 +140,7 @@ static void handle_read(Networking *net, int conn_id, struct io_uring_cqe *cqe) 
    int read_len = cqe->res;
    conn->buf_used += read_len;
 
-   if (conn->buf_used < LOGIN_PACKET_SIZE) {
+   if (conn->buf_used < sizeof(conn->buf)) {
       queue_read(net, conn_id, conn);
       return;
    }

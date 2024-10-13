@@ -10,6 +10,21 @@
 #define MAX_USERNAME_LEN 16
 #define BETA173_PROTOCOL_VER 14
 
+#define PLAYER_IDENTIFICATION_ID 0
+#define PLAYER_IDENTIFICATION_PKT_SIZE                                                             \
+   (sizeof(unsigned char) + sizeof(McString) + sizeof(McString) + sizeof(unsigned char))
+
+typedef struct {
+   unsigned char protocol_version;
+   const char *username;
+   int username_len;
+   const char *verification_key;
+   int verification_key_len;
+   unsigned char padding;
+} PlayerIdentification;
+
+bool read_player_identification_pkt(const unsigned char *buf, PlayerIdentification *pkt);
+
 #define LOGIN_ID 1
 typedef struct {
    int32_t protocol_version;

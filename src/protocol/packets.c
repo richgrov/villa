@@ -4,6 +4,30 @@
 
 #include "types.h"
 
+bool read_player_identification_pkt(const unsigned char *buf, PlayerIdentification *pkt) {
+   const unsigned char *cursor = buf;
+
+   pkt->protocol_version = *cursor++;
+   if (pkt->protocol_version != 7) {
+      return false;
+   }
+
+   pkt->username = (const char *)cursor;
+   pkt->username_len = mc_string_len(pkt->username);
+   cursor += sizeof(McString);
+   if (pkt->username_len < 1 || pkt->username_len > 16) {
+      return false;
+   }
+
+   pkt->verification_key = (const char *)cursor;
+   pkt->verification_key_len = mc_string_len(pkt->verification_key);
+   cursor += sizeof(McString);
+
+   pkt->padding = *cursor++;
+
+   return true;
+}
+
 bool read_login_pkt(const unsigned char *buf, const size_t len, Login *pkt) {
    const unsigned char *cursor = buf;
 

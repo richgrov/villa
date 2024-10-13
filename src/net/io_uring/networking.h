@@ -1,16 +1,13 @@
 #include <liburing.h>
 #include <netinet/in.h>
 
-#include "protocol/types.h"
-
-#define LOGIN_PACKET_SIZE                                                                          \
-   (sizeof(char) + sizeof(char) + sizeof(McString) + sizeof(McString) + sizeof(char))
+#include "protocol/packets.h"
 
 typedef union {
    unsigned char next_unallocated;
    struct {
       int fd;
-      unsigned char buf[LOGIN_PACKET_SIZE];
+      unsigned char buf[PLAYER_IDENTIFICATION_PKT_SIZE + 1]; // +1 for packet id
       int buf_used;
    };
 } Connection;
