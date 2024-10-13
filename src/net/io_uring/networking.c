@@ -14,6 +14,12 @@ static inline bool enable_reuseaddr(int fd) {
    return res == 0;
 }
 
+static inline void queue_accept(Networking *net) {
+   struct io_uring_sqe *sqe = io_uring_get_sqe(&net->ring);
+   io_uring_prep_accept(sqe, net->fd, (struct sockaddr *)&net->address, &net->address_size, 0);
+   sqe->user_data = 12;
+}
+
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections) {
    struct sockaddr_in address = {
       .sin_family = AF_INET,
@@ -51,6 +57,8 @@ bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_conne
       fprintf(stderr, "fast poll isn't supported");
       return false;
    }
+
+   queue_accept(net);
 
    return true;
 }
