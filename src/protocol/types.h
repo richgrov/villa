@@ -52,6 +52,8 @@ typedef uint16_t McChar;
 
 bool read_mc_string(const unsigned char *buf, int16_t num_code_units, McChar *dest);
 
+int mc_string_len(const McString str);
+
 #define MC_STRING_SIZE(n_chars) (sizeof(int16_t) + (n_chars) * sizeof(McChar))
 
 #endif // !SIMULO_PROTOCOL_TYPES_H_

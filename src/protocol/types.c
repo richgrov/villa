@@ -14,3 +14,16 @@ bool read_mc_string(const unsigned char *buf, int16_t num_code_units, McChar *de
 
    return true;
 }
+
+int mc_string_len(const McString str) {
+   int len = sizeof(McString);
+
+   while (len > 0) {
+      if (str[len - 1] != ' ') {
+         break;
+      }
+      --len;
+   }
+
+   return len;
+}
