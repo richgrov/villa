@@ -11,6 +11,7 @@ typedef union {
    struct {
       int fd;
       unsigned char buf[LOGIN_PACKET_SIZE];
+      int buf_used;
    };
 } Connection;
 

@@ -96,6 +96,11 @@ bool net_listen(Networking *net) {
    return ok;
 }
 
+static inline void dealloc_connection(Networking *net, int conn_id, Connection *conn) {
+   conn->next_unallocated = net->next_unallocated_conn;
+   net->next_unallocated_conn = conn_id;
+}
+
 static inline void handle_accept(Networking *net, struct io_uring_cqe *cqe) {
    if (!(cqe->flags & IORING_CQE_F_MORE)) {
       queue_accept(net);
@@ -122,8 +127,23 @@ static inline void handle_accept(Networking *net, struct io_uring_cqe *cqe) {
    queue_read(net, conn_id, conn);
 }
 
-static void handle_read(Networking *net, struct io_uring_cqe *cqe) {
-   printf("read %d\n", cqe->res);
+static void handle_read(Networking *net, int conn_id, struct io_uring_cqe *cqe) {
+   Connection *conn = &net->connections[conn_id];
+
+   if (cqe->res < 0) {
+      int err = -cqe->res;
+      fprintf(stderr, "read error: %d", err);
+      dealloc_connection(net, conn_id, conn);
+      return;
+   }
+
+   int read_len = cqe->res;
+   conn->buf_used += read_len;
+
+   if (conn->buf_used < LOGIN_PACKET_SIZE) {
+      queue_read(net, conn_id, conn);
+      return;
+   }
 }
 
 int net_poll(Networking *net) {
@@ -141,7 +161,7 @@ int net_poll(Networking *net) {
       }
 
       if (cqe->user_data & CONN_READ_FLAG) {
-         handle_read(net, cqe);
+         handle_read(net, cqe->user_data & CONNECTION_ID_MASK, cqe);
       }
    }
 
