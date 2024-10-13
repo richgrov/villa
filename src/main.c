@@ -39,7 +39,10 @@ int main() {
    }
    next_avail_player = 0;
 
-   net_init(&networking, 25565, join_queue);
+   if (!net_init(&networking, 25565, join_queue)) {
+      return -1;
+   }
+
    net_listen(&networking);
 
    while (true) {
