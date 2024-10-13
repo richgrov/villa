@@ -77,5 +77,17 @@ bool net_listen(Networking *net) {
 }
 
 int net_poll(Networking *net) {
+   io_uring_submit_and_wait(&net->ring, 1);
+
+   unsigned int head;
+   struct io_uring_cqe *cqe;
+   unsigned int count = 0;
+
+   io_uring_for_each_cqe(&net->ring, head, cqe) {
+      ++count;
+      printf("%llu\n", cqe->user_data);
+   }
+
+   io_uring_cq_advance(&net->ring, count);
    return 0;
 }
