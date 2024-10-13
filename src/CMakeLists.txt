@@ -38,6 +38,10 @@ if (WIN32)
    target_link_libraries(simulo Ws2_32.lib)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+   target_link_libraries(simulo liburing.so)
+endif()
+
 set_property(TARGET simulo PROPERTY C_STANDARD 11)
 
 if (BUILD_TESTING)
