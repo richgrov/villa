@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -114,7 +115,8 @@ static inline void handle_accept(Networking *net, struct io_uring_cqe *cqe) {
 
    int conn_id = net->next_unallocated_conn;
    Connection *conn = &net->connections[conn_id];
-   net->next_unallocated_conn = net->connections[conn_id].next_unallocated;
+   net->next_unallocated_conn = conn->next_unallocated;
+   memset(conn, 0, sizeof(*conn));
 
    conn->fd = cqe->res;
    queue_read(net, conn_id, conn);
