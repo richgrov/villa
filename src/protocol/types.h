@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef char McString[64];
+
 static inline int16_t read_mc_short(const unsigned char *buf) {
    return buf[0] << 8 | buf[1];
 }
