@@ -1,6 +1,7 @@
 #include "networking.h"
 
 #include <errno.h>
+#include <liburing.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -35,6 +36,19 @@ bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_conne
 
    if (bind(net->fd, (struct sockaddr *)&net->address, net->address_size) == -1) {
       fprintf(stderr, "couldn't bind %d: %d", net->fd, errno);
+      return false;
+   }
+
+   struct io_uring_params params = {};
+   // TODO: is 2048 a good amount?
+   int res = io_uring_queue_init_params(2048, &net->ring, &params);
+   if (res != 0) {
+      fprintf(stderr, "couldn't init uring params: %d", -res);
+      return false;
+   }
+
+   if (!(params.features & IORING_FEAT_FAST_POLL)) {
+      fprintf(stderr, "fast poll isn't supported");
       return false;
    }
 

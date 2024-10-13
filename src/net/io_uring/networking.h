@@ -11,6 +11,7 @@ typedef struct {
 } IncomingConnection;
 
 typedef struct {
+   struct io_uring ring;
    struct sockaddr_in address;
    socklen_t address_size;
    int fd;
