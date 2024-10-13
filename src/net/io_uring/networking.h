@@ -2,7 +2,7 @@
 #include <netinet/in.h>
 
 typedef union {
-   unsigned char next_unallocted;
+   unsigned char next_unallocated;
    struct {
       int fd;
    };

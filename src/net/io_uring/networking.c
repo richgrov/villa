@@ -28,7 +28,7 @@ static inline void queue_accept(Networking *net) {
 
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections) {
    for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
-      net->connections[i].next_unallocted = i + 1;
+      net->connections[i].next_unallocated = i + 1;
    }
 
    struct sockaddr_in address = {
@@ -104,9 +104,9 @@ static inline void handle_accept(Networking *net, struct io_uring_cqe *cqe) {
    }
 
    int conn_id = net->next_unallocated_conn;
-   net->next_unallocated_conn = net->connections[conn_id].next_unallocted;
    net->connections[conn_id].fd = cqe->res;
    printf("%d\n", conn_id);
+   net->next_unallocated_conn = net->connections[conn_id].next_unallocated;
 }
 
 int net_poll(Networking *net) {
