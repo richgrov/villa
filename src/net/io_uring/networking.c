@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "protocol/packets.h"
 #include "util/arrays.h"
 
 #define ACCEPT_CQE_ID 0xFFFFFFFFFFFFFFFF
@@ -144,6 +145,21 @@ static void handle_read(Networking *net, int conn_id, struct io_uring_cqe *cqe) 
       queue_read(net, conn_id, conn);
       return;
    }
+
+   if (conn->buf[0] != PLAYER_IDENTIFICATION_ID) {
+      fprintf(stderr, "wrong packet id\n");
+      dealloc_connection(net, conn_id, conn);
+      return;
+   }
+
+   PlayerIdentification packet;
+   if (!read_player_identification_pkt(&conn->buf[1], &packet)) {
+      fprintf(stderr, "invalid packet\n");
+      dealloc_connection(net, conn_id, conn);
+      return;
+   }
+
+   printf("%.*s joined\n", packet.username_len, packet.username);
 }
 
 int net_poll(Networking *net) {
