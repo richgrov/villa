@@ -43,7 +43,9 @@ int main() {
       return -1;
    }
 
-   net_listen(&networking);
+   if (!net_listen(&networking)) {
+      return -1;
+   }
 
    while (true) {
       tick();
