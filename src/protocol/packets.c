@@ -4,6 +4,8 @@
 
 #include "types.h"
 
+#define SERVER_IDENTIFICATION_ID 0
+
 bool read_player_identification_pkt(const unsigned char *buf, PlayerIdentification *pkt) {
    const unsigned char *cursor = buf;
 
@@ -26,6 +28,16 @@ bool read_player_identification_pkt(const unsigned char *buf, PlayerIdentificati
    pkt->padding = *cursor++;
 
    return true;
+}
+
+void write_server_identification_pkt(unsigned char *buf, ServerIdentification *pkt) {
+   *buf++ = SERVER_IDENTIFICATION_ID;
+   *buf++ = pkt->protocol_version;
+   write_mc_string(buf, pkt->server_name);
+   buf += sizeof(McString);
+   write_mc_string(buf, pkt->server_motd);
+   buf += sizeof(McString);
+   *buf++ = pkt->user_type;
 }
 
 bool read_login_pkt(const unsigned char *buf, const size_t len, Login *pkt) {

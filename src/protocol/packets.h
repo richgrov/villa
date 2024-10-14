@@ -8,7 +8,7 @@
 #include "types.h"
 
 #define MAX_USERNAME_LEN 16
-#define BETA173_PROTOCOL_VER 14
+#define CLASSIC_PROTOCOL_VER 7
 
 #define PLAYER_IDENTIFICATION_ID 0
 #define PLAYER_IDENTIFICATION_PKT_SIZE                                                             \
@@ -24,6 +24,20 @@ typedef struct {
 } PlayerIdentification;
 
 bool read_player_identification_pkt(const unsigned char *buf, PlayerIdentification *pkt);
+
+typedef enum {
+   USER_TYPE_REGULAR,
+   USER_TYPE_OPERATOR,
+} UserType;
+
+typedef struct {
+   unsigned char protocol_version;
+   const char *server_name;
+   const char *server_motd;
+   UserType user_type;
+} ServerIdentification;
+
+void write_server_identification_pkt(unsigned char *buf, ServerIdentification *pkt);
 
 #define LOGIN_ID 1
 typedef struct {
