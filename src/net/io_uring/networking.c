@@ -23,7 +23,7 @@ static inline bool enable_reuseaddr(int fd) {
    return res == 0;
 }
 
-static inline void queue_accept(Networking *net) {
+static void queue_accept(Networking *net) {
    struct io_uring_sqe *sqe = io_uring_get_sqe(&net->ring);
    io_uring_prep_multishot_accept(
       sqe, net->fd, (struct sockaddr *)&net->address, &net->address_size, 0
@@ -31,7 +31,7 @@ static inline void queue_accept(Networking *net) {
    sqe->user_data = ACCEPT_CQE_ID;
 }
 
-static inline void queue_read(Networking *net, int conn_id, Connection *conn) {
+static void queue_read(Networking *net, int conn_id, Connection *conn) {
    struct io_uring_sqe *sqe = io_uring_get_sqe(&net->ring);
    io_uring_prep_recv(sqe, conn->fd, conn->buf, sizeof(conn->buf), 0);
    sqe->user_data = conn_id | CONN_READ_FLAG;
