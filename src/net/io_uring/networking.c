@@ -37,6 +37,12 @@ static void queue_read(Networking *net, int conn_id, Connection *conn) {
    sqe->user_data = conn_id | CONN_READ_FLAG;
 }
 
+static void queue_write(Networking *net, int conn_id, Connection *conn) {
+   struct io_uring_sqe *sqe = io_uring_get_sqe(&net->ring);
+   io_uring_prep_send(sqe, conn->fd, conn->buf, sizeof(conn->buf), 0);
+   sqe->user_data = conn_id | CONN_WRITE_FLAG;
+}
+
 bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections) {
    for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
       net->connections[i].next_unallocated = i + 1;
@@ -160,6 +166,19 @@ static void handle_read(Networking *net, int conn_id, struct io_uring_cqe *cqe) 
    }
 
    printf("%.*s joined\n", packet.username_len, packet.username);
+
+   ServerIdentification out_packet = {
+      .protocol_version = CLASSIC_PROTOCOL_VER,
+      .server_name = "simulo",
+      .server_motd = "A Minecraft Server",
+      .user_type = USER_TYPE_REGULAR,
+   };
+   write_server_identification_pkt(conn->buf, &out_packet);
+   queue_write(net, conn_id, conn);
+}
+
+static void handle_write(Networking *net, int conn_id, struct io_uring_cqe *cqe) {
+   printf("write %d\n", cqe->res);
 }
 
 int net_poll(Networking *net) {
@@ -178,6 +197,8 @@ int net_poll(Networking *net) {
 
       if (cqe->user_data & CONN_READ_FLAG) {
          handle_read(net, cqe->user_data & CONNECTION_ID_MASK, cqe);
+      } else if (cqe->user_data & CONN_WRITE_FLAG) {
+         handle_write(net, cqe->user_data & CONNECTION_ID_MASK, cqe);
       }
    }
 
