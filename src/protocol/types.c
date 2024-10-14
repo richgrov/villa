@@ -15,6 +15,21 @@ bool read_mc_string(const unsigned char *buf, int16_t num_code_units, McChar *de
    return true;
 }
 
+void write_mc_string(unsigned char *buf, const char *str) {
+   int len;
+   for (len = 0; len < 64; ++len) {
+      char c = str[len];
+      if (c == '\0') {
+         break;
+      }
+      buf[len] = (unsigned char)c;
+   }
+
+   while (len < 64) {
+      buf[len++] = ' ';
+   }
+}
+
 int mc_string_len(const McString str) {
    int len = sizeof(McString);
 

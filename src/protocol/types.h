@@ -52,6 +52,8 @@ typedef uint16_t McChar;
 
 bool read_mc_string(const unsigned char *buf, int16_t num_code_units, McChar *dest);
 
+void write_mc_string(unsigned char *buf, const char *str);
+
 int mc_string_len(const McString str);
 
 #define MC_STRING_SIZE(n_chars) (sizeof(int16_t) + (n_chars) * sizeof(McChar))
