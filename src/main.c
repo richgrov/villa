@@ -6,7 +6,7 @@
 
 #define OUT_OF_PLAYERS -1
 
-Player players[256];
+Player players[128];
 int next_avail_player;
 Networking networking;
 IncomingConnection join_queue[SIMULO_JOIN_QUEUE_CAPACITY];
