@@ -9,6 +9,8 @@ typedef union {
       int fd;
       unsigned char buf[PLAYER_IDENTIFICATION_PKT_SIZE + 1]; // +1 for packet id
       int buf_used;
+      // Will be null-terminated if username length is <16. Otherwise, full buffer is used.
+      char username[16];
    };
 } Connection;
 

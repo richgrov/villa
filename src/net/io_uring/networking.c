@@ -165,7 +165,10 @@ static void handle_read(Networking *net, int conn_id, struct io_uring_cqe *cqe) 
       return;
    }
 
-   printf("%.*s joined\n", packet.username_len, packet.username);
+   memcpy(conn->username, packet.username, packet.username_len);
+   if (packet.username_len < 16) {
+      conn->username[packet.username_len] = '\0';
+   }
 
    ServerIdentification out_packet = {
       .protocol_version = CLASSIC_PROTOCOL_VER,
