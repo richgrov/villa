@@ -76,8 +76,8 @@ bool net_init(Networking *net, uint16_t port, ConnectionId *join_queue) {
    }
 
    struct io_uring_params params = {};
-   // TODO: is 2048 a good amount?
-   int res = io_uring_queue_init_params(2048, &net->ring, &params);
+   // TODO: is 512 a good amount?
+   int res = io_uring_queue_init_params(512, &net->ring, &params);
    if (res != 0) {
       fprintf(stderr, "couldn't init uring params: %d", -res);
       return false;
