@@ -9,13 +9,13 @@
 Player players[128];
 int next_avail_player;
 Networking networking;
-IncomingConnection join_queue[SIMULO_JOIN_QUEUE_CAPACITY];
+ConnectionId join_queue[SIMULO_JOIN_QUEUE_CAPACITY];
 
 void tick() {
    int num_accepted = net_poll(&networking);
 
    for (int i = 0; i < num_accepted; ++i) {
-      IncomingConnection *incoming = &join_queue[i];
+      ConnectionId conn_id = join_queue[i];
 
       if (next_avail_player == OUT_OF_PLAYERS) {
          break; // todo
@@ -23,7 +23,7 @@ void tick() {
 
       Player *player = &players[next_avail_player];
       next_avail_player = player->next;
-      player_init(player, incoming->conn, incoming->username);
+      player_init(player, &networking.connections[conn_id]);
    }
 }
 

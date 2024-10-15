@@ -12,6 +12,6 @@ typedef union {
 } Player;
 
 // Username is expected to be at least 16 chars
-void player_init(Player *player, Connection *conn, const char *username);
+void player_init(Player *player, Connection *conn);
 
 #endif // !SIMULO_PLAYER_H_

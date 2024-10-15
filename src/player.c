@@ -15,8 +15,8 @@ static int username_len(const char *username) {
    return 16;
 }
 
-void player_init(Player *player, Connection *conn, const char *username) {
+void player_init(Player *player, Connection *conn) {
    player->conn = conn;
-   memcpy(player->username, username, MAX_USERNAME_LEN);
+   memcpy(player->username, conn->username, MAX_USERNAME_LEN);
    printf("%.*s\n", username_len(player->username), player->username);
 }

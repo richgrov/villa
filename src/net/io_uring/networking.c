@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "protocol/packets.h"
 #include "util/arrays.h"
 
@@ -43,7 +44,9 @@ static void queue_write(Networking *net, int conn_id, Connection *conn) {
    sqe->user_data = conn_id | CONN_WRITE_FLAG;
 }
 
-bool net_init(Networking *net, uint16_t port, IncomingConnection *accepted_connections) {
+bool net_init(Networking *net, uint16_t port, ConnectionId *join_queue) {
+   net->join_queue = join_queue;
+
    for (int i = 0; i < ARRAY_LEN(net->connections); ++i) {
       net->connections[i].next_unallocated = i + 1;
    }
@@ -182,9 +185,15 @@ static void handle_read(Networking *net, int conn_id, struct io_uring_cqe *cqe) 
 
 static void handle_write(Networking *net, int conn_id, struct io_uring_cqe *cqe) {
    printf("write %d\n", cqe->res);
+   if (net->join_queue_len >= SIMULO_JOIN_QUEUE_CAPACITY) {
+      // TODO: kick msg
+      return;
+   }
+   net->join_queue[net->join_queue_len++] = conn_id;
 }
 
 int net_poll(Networking *net) {
+   net->join_queue_len = 0;
    io_uring_submit_and_wait(&net->ring, 1);
 
    unsigned int head;
@@ -206,5 +215,5 @@ int net_poll(Networking *net) {
    }
 
    io_uring_cq_advance(&net->ring, count);
-   return 0;
+   return net->join_queue_len;
 }
