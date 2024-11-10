@@ -43,19 +43,3 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 set_property(TARGET simulo PROPERTY C_STANDARD 11)
-
-if (BUILD_TESTING)
-   add_executable(simulo_test
-      test_main.c
-      ${SOURCE_FILES}
-   )
-
-   target_include_directories(simulo_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-   target_include_directories(simulo_test PRIVATE "${PROJECT_SOURCE_DIR}/thirdparty")
-
-   if (WIN32)
-      target_link_libraries(simulo_test Ws2_32.lib)
-   endif()
-
-   set_property(TARGET simulo PROPERTY C_STANDARD 11)
-endif()

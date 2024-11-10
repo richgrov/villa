@@ -2,3 +2,5 @@
 .cache/
 build/
 out/
+/.zig-cache/
+/zig-out/
